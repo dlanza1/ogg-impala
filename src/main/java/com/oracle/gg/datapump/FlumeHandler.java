@@ -17,7 +17,10 @@ import com.goldengate.atg.datasource.DsEvent;
 import com.goldengate.atg.datasource.DsOperation;
 import com.goldengate.atg.datasource.DsTransaction;
 import com.goldengate.atg.datasource.GGDataSource.Status;
+import com.goldengate.atg.datasource.adapt.Op;
+import com.goldengate.atg.datasource.adapt.Tx;
 import com.goldengate.atg.datasource.meta.DsMetaData;
+import com.goldengate.atg.datasource.meta.TableMetaData;
 import com.google.common.collect.Lists;
 
 public class FlumeHandler extends AbstractHandler {
@@ -27,92 +30,126 @@ public class FlumeHandler extends AbstractHandler {
 	protected Integer flumePort;
 	protected String flumeHost;
 	
-	protected List<Event> flumeEvents;
-	
 	@Override
 	public void init(DsConfiguration conf, DsMetaData metaData) {
-		initHandler(conf, metaData); 
+		LOG.info("Initializing handler...");
 		
-        LOG.info("Initializing handler");
-
-        flumeClient = getFlumeClient(flumeHost, flumePort);
-        
-        if(!isOperationMode())
-        	flumeEvents = Lists.newArrayList();
+		if(flumeHost == null)
+			throw new RuntimeException("the Flume host must be specified in the properties file");
+		if(flumePort == null)
+			throw new RuntimeException("the Flume port must be specified in the properties file");
+		
+		informInit(conf, metaData); 
+		
+		flumeClient = getFlumeClient();
+		
+		LOG.info("Handler was inicialized with Flume client (host=" + flumeHost + ", port=" + flumePort + ")");
 	}
 	
-	protected RpcClient getFlumeClient(String flumeHost2, Integer flumePort2) {
-		return RpcClientFactory.getDefaultInstance(flumeHost, flumePort);
-	}
-
-	protected void initHandler(DsConfiguration conf, DsMetaData metaData) {
+	protected void informInit(DsConfiguration conf, DsMetaData metaData) {
 		super.init(conf, metaData);
 	}
-
+	
+	protected RpcClient getFlumeClient() {
+		return RpcClientFactory.getDefaultInstance(flumeHost, flumePort);
+	}
+	
 	@Override
 	public Status transactionBegin(DsEvent e, DsTransaction tx) {
-		if(!isOperationMode())
-			flumeEvents.clear();
+		informTransactionBegin(e, tx);
 		
 		return Status.OK;
 	}
 	
+	protected void informTransactionBegin(DsEvent e, DsTransaction tx){
+		super.transactionBegin(e, tx);
+	}
+	
 	@Override
-	public Status operationAdded(DsEvent dsEvent, DsTransaction dsTx, DsOperation dsOp) {
-		Event event = EventBuilder.withBody(dsOp.toString(), Charset.forName("UTF-8"));
+	public Status operationAdded(DsEvent event, DsTransaction transaction, DsOperation operation) {
+		informOperationAdded(event, transaction, operation);
+		
+		if(isOperationMode()){
+			final Op op = getOp(operation);
+			
+			try {
+				flumeClient.append(getEventFromOp(op));
+			} catch (EventDeliveryException e) {
+				e.printStackTrace();
+				
+				return Status.ABEND;
+			}
+		}
+		
+		return Status.OK;
+	}
+	
+	protected Op getOp(DsOperation operation) {
+		final TableMetaData tMeta = getMetaData().getTableMetaData(operation.getTableName());
+		return new Op(operation, tMeta, getConfig());
+	}
 
-		try {
-			if(isOperationMode())
-				flumeClient.append(event);
-			else
-				flumeEvents.add(event);
-		} catch (EventDeliveryException e) {
-			e.printStackTrace();
-			
-			return Status.ABORT;
-		}
-		
-		return Status.OK;
+	protected void informOperationAdded(DsEvent event, DsTransaction transaction, DsOperation operation) {
+		super.operationAdded(event, transaction, operation);
 	}
-	
+
+	private static Event getEventFromOp(Op op){
+		Event event = EventBuilder.withBody(op.toString(), Charset.forName("UTF-8"));
+		
+		return event;
+	}
+
 	@Override
-	public Status transactionCommit(DsEvent dsEvent, DsTransaction dsTx) {
+	public Status transactionCommit(DsEvent event, DsTransaction transaction) {
+		informTransactionCommit(event, transaction);
 		
-		try {
-			if(!isOperationMode())
-				flumeClient.appendBatch(flumeEvents);
-		} catch (EventDeliveryException e) {
-			e.printStackTrace();
+		if(!isOperationMode()){
+			Tx ops = getOps(transaction);
+			List<Event> events = Lists.newLinkedList();
+			for (Op op : ops)
+				events.add(getEventFromOp(op));
 			
-			return Status.ABORT;
-		} finally {
-			flumeEvents.clear();
+			try {
+				flumeClient.appendBatch(events);
+			} catch (EventDeliveryException e) {
+				e.printStackTrace();
+				
+				return Status.ABORT;
+			}
 		}
 			
 		return Status.OK;
 	}
 	
+	protected Tx getOps(DsTransaction transaction) {
+		return new Tx(transaction, getMetaData(), getConfig());
+	}
+
+	protected void informTransactionCommit(DsEvent event, DsTransaction transaction) {
+		super.transactionCommit(event, transaction);
+	}
+
 	@Override
 	public Status transactionRollback(DsEvent e, DsTransaction tx) {
-		if(!isOperationMode())
-			flumeEvents.clear();
+		informTransactionRollBack(e, tx);
 		
 		return Status.OK;
 	}
-	
+
+	protected void informTransactionRollBack(DsEvent e, DsTransaction tx) {
+		super.transactionRollback(e, tx);
+	}
+
 	@Override
 	public String reportStatus() {
-		return "Flume events = " + flumeEvents.size();
+		return "status reported";
 	}
 	
 	@Override
 	public void destroy() {
-		super.destroy();
-		
-		if(!isOperationMode())
-			flumeEvents.clear();
-		
 		flumeClient.close();
+		
+		super.destroy();
 	}
 	
     public void setFlumeHost(String flumeHost) {
