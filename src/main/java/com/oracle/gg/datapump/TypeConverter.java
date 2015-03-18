@@ -5,6 +5,8 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.text.ParseException;
 
+import oracle.jdbc.OracleTypes;
+
 import com.goldengate.atg.datasource.adapt.Col;
 import com.goldengate.atg.datasource.meta.DsType;
 import com.goldengate.atg.util.SettableClock;
@@ -200,50 +202,84 @@ public class TypeConverter {
 		if(col.isMissing())
 			throw new ParseException("the value is missing, it should be stored", 0);
 		
-		//http://docs.oracle.com/cd/B19306_01/java.102/b14188/datamap.htm
+		byte[] val = col.getBinary();
 		
+		//http://docs.oracle.com/cd/E11882_01/java.112/e16548/datacc.htm#JJDBC28365
 		switch(col.getDataType().getJDBCType()){
-		case Types.BIT:
-		case Types.BOOLEAN:
-			return oracle.sql.NUMBER.toBoolean(col.getBinary());
-		case Types.INTEGER:
-		case Types.TINYINT:
-		case Types.SMALLINT:
-			return oracle.sql.NUMBER.toInt(col.getBinary());
-		case Types.BIGINT:
-			return oracle.sql.NUMBER.toLong(col.getBinary());
-		case Types.REAL:
-		case 100: //BINARY_FLOAT
-			return oracle.sql.NUMBER.toFloat(col.getBinary());
-		case Types.FLOAT:        
-			return oracle.sql.NUMBER.toDouble(col.getBinary());
-		case Types.DOUBLE:
-		case 101: //BINARY_DOUBLE
-			return oracle.sql.NUMBER.toDouble(col.getBinary());
-		case Types.NUMERIC:
-		case Types.DECIMAL:
-			return oracle.sql.NUMBER.toBigDecimal(col.getBinary());
-	    case Types.DATE:
-	    	return oracle.sql.DATE.toDate(col.getBinary());
-	    case Types.TIME:
-	    case Types.TIMESTAMP:
-	    	return oracle.sql.TIMESTAMP.toTimestamp(col.getBinary());
-		case Types.VARCHAR:
-		case Types.CHAR:
-		case Types.LONGVARCHAR:
-		case Types.LONGNVARCHAR:
-		case Types.NVARCHAR:
-		case Types.NCHAR:
-		case Types.CLOB:
-			return new String(col.getBinary());
-		case Types.BLOB:
-		case Types.BINARY:
-		case Types.VARBINARY:
-		case Types.LONGVARBINARY:
-			return new String(col.getBinary());
+		case OracleTypes.CHAR:
+		case OracleTypes.VARCHAR:
+		case OracleTypes.LONGVARCHAR:
+			return new String(val);
+		case OracleTypes.NUMERIC:
+		case OracleTypes.DECIMAL:
+			return oracle.sql.NUMBER.toBigDecimal(val);
+		case OracleTypes.BIT:
+			return oracle.sql.NUMBER.toBoolean(val);
+		case OracleTypes.TINYINT:
+			return oracle.sql.NUMBER.toByte(val);
+		case OracleTypes.SMALLINT:
+			return oracle.sql.NUMBER.toShort(val);
+		case OracleTypes.INTEGER:
+			return oracle.sql.NUMBER.toInt(val);
+		case OracleTypes.BIGINT:
+			return oracle.sql.NUMBER.toLong(val);
+		case OracleTypes.REAL:
+		case OracleTypes.FLOAT:
+		case OracleTypes.DOUBLE:
+			return oracle.sql.NUMBER.toFloat(val);
+		case OracleTypes.DATE:
+		case OracleTypes.TIME:
+			return oracle.sql.DATE.toDate(val);
+		case OracleTypes.TIMESTAMP:
+		case OracleTypes.TIMESTAMPTZ:
+			return oracle.sql.TIMESTAMP.toTimestamp(val);
 		default:
 			throw new ParseException("the JDBCT type " + col.getDataType().getJDBCType() + " is not compatible", 0);
 		}
+		
+		
+//		switch(col.getDataType().getJDBCType()){
+//		case Types.BIT:
+//		case Types.BOOLEAN:
+//			return oracle.sql.NUMBER.toBoolean(col.getBinary());
+//		case Types.INTEGER:
+//		case Types.TINYINT:
+//		case Types.SMALLINT:
+//			return oracle.sql.NUMBER.toInt(col.getBinary());
+//		case Types.BIGINT:
+//			return oracle.sql.NUMBER.toLong(col.getBinary());
+//		case Types.REAL:
+//		case 100: //BINARY_FLOAT
+//			return oracle.sql.NUMBER.toFloat(col.getBinary());
+//		case Types.FLOAT:        
+//			return oracle.sql.NUMBER.toDouble(col.getBinary());
+//		case Types.DOUBLE:
+//		case 101: //BINARY_DOUBLE
+//			return oracle.sql.NUMBER.toDouble(col.getBinary());
+//		case Types.NUMERIC:
+//		case Types.DECIMAL:
+//			return oracle.sql.NUMBER.toBigDecimal(col.getBinary());
+//	    case Types.DATE:
+//	    	return oracle.sql.DATE.toDate(col.getBinary());
+//	    case Types.TIME:
+//	    case Types.TIMESTAMP:
+//	    	return oracle.sql.TIMESTAMP.toTimestamp(col.getBinary());
+//		case Types.VARCHAR:
+//		case Types.CHAR:
+//		case Types.LONGVARCHAR:
+//		case Types.LONGNVARCHAR:
+//		case Types.NVARCHAR:
+//		case Types.NCHAR:
+//		case Types.CLOB:
+//			return new String(col.getBinary());
+//		case Types.BLOB:
+//		case Types.BINARY:
+//		case Types.VARBINARY:
+//		case Types.LONGVARBINARY:
+//			return new String(col.getBinary());
+//		default:
+//			throw new ParseException("the JDBCT type " + col.getDataType().getJDBCType() + " is not compatible", 0);
+//		}
 	}
 
 	public static String removeUndesirableCharacters(String value) {
