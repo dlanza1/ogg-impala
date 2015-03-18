@@ -10,7 +10,8 @@ import org.hamcrest.Matcher;
 public class MyMatchers {
     public static <T> Matcher<List<T>> list(final Class<T> type, final int num_elements) {
         return new BaseMatcher<List<T>>(){
-            @Override
+            @SuppressWarnings("unchecked")
+			@Override
             public boolean matches(Object o) {
                 List<T> actualList = Collections.emptyList();
                 try {

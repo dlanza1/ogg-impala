@@ -1,13 +1,24 @@
 package com.oracle.gg.datapump;
 
-import java.nio.charset.Charset;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.text.ParseException;
 import java.util.List;
 
+import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericData.Record;
+import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.generic.GenericRecordBuilder;
+import org.apache.avro.io.Encoder;
+import org.apache.avro.io.EncoderFactory;
+import org.apache.avro.reflect.ReflectDatumWriter;
 import org.apache.flume.Event;
-import org.apache.flume.EventDeliveryException;
-import org.apache.flume.api.RpcClient;
-import org.apache.flume.api.RpcClientFactory;
 import org.apache.flume.event.EventBuilder;
+import org.kitesdk.data.Dataset;
+import org.kitesdk.data.DatasetDescriptor;
+import org.kitesdk.data.Datasets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,43 +26,61 @@ import com.goldengate.atg.datasource.AbstractHandler;
 import com.goldengate.atg.datasource.DsConfiguration;
 import com.goldengate.atg.datasource.DsEvent;
 import com.goldengate.atg.datasource.DsOperation;
+import com.goldengate.atg.datasource.DsOperation.OpType;
 import com.goldengate.atg.datasource.DsTransaction;
 import com.goldengate.atg.datasource.GGDataSource.Status;
+import com.goldengate.atg.datasource.adapt.Col;
 import com.goldengate.atg.datasource.adapt.Op;
 import com.goldengate.atg.datasource.adapt.Tx;
 import com.goldengate.atg.datasource.meta.DsMetaData;
 import com.goldengate.atg.datasource.meta.TableMetaData;
+import com.google.common.base.Throwables;
 import com.google.common.collect.Lists;
 
 public class FlumeHandler extends AbstractHandler {
 	final private static Logger LOG = LoggerFactory.getLogger(FlumeHandler.class);
 	
-	protected RpcClient flumeClient;
-	protected Integer flumePort;
-	protected String flumeHost;
+	private URI dataset_uri;
+	private GenericRecordBuilder recordBuilder;
+	private Schema schema;
+
+	private FlumeClient flumeClient;
+	
+	public FlumeHandler() {
+		flumeClient = getFlumeClient();
+	}
 	
 	@Override
 	public void init(DsConfiguration conf, DsMetaData metaData) {
 		LOG.info("Initializing handler...");
 		
-		if(flumeHost == null)
-			throw new RuntimeException("the Flume host must be specified in the properties file");
-		if(flumePort == null)
-			throw new RuntimeException("the Flume port must be specified in the properties file");
+		if(dataset_uri == null)
+			throw new RuntimeException("the dataset must be specified in the properties file");
 		
 		informInit(conf, metaData); 
 		
-		flumeClient = getFlumeClient();
+		flumeClient.connect();
 		
-		LOG.info("Handler was inicialized with Flume client (host=" + flumeHost + ", port=" + flumePort + ")");
+		Dataset<Record> dataset;
+		if(Datasets.exists(dataset_uri)){
+			LOG.info("loading dataset: " + dataset_uri);
+			dataset = (Dataset<Record>) Datasets.load(dataset_uri, Record.class);
+		}else{
+			LOG.info("the dataset "+dataset_uri+" does not exist, so it is going to be created");
+			DatasetDescriptor descriptor = null;
+			dataset = (Dataset<Record>) Datasets.create(dataset_uri, descriptor, Record.class);
+		}
+		
+		schema = dataset.getDescriptor().getSchema();
+		LOG.info("Dataset schema = " + schema);
+		
+		recordBuilder = new GenericRecordBuilder(schema);
+		
+		LOG.info("Handler was inicialized");
 	}
 	
 	protected void informInit(DsConfiguration conf, DsMetaData metaData) {
 		super.init(conf, metaData);
-	}
-	
-	protected RpcClient getFlumeClient() {
-		return RpcClientFactory.getDefaultInstance(flumeHost, flumePort);
 	}
 	
 	@Override
@@ -67,77 +96,98 @@ public class FlumeHandler extends AbstractHandler {
 	
 	@Override
 	public Status operationAdded(DsEvent event, DsTransaction transaction, DsOperation operation) {
-		informOperationAdded(event, transaction, operation);
+		Status retVal = informOperationAdded(event, transaction, operation);
 		
-		if(isOperationMode()){
-			final Op op = getOp(operation);
-			
-			try {
-				flumeClient.append(getEventFromOp(op));
-			} catch (EventDeliveryException e) {
-				e.printStackTrace();
-				
-				return Status.ABEND;
+		try{
+			if(isOperationMode()){
+				flumeClient.send(getEventFromOp(getOp(operation)));
 			}
+		}catch(Exception e){
+			retVal = Status.ABEND;
+			
+			LOG.error("there was an error during operation added: " + e.getMessage());
 		}
 		
-		return Status.OK;
+		return retVal;
 	}
-	
+
 	protected Op getOp(DsOperation operation) {
 		final TableMetaData tMeta = getMetaData().getTableMetaData(operation.getTableName());
+		
 		return new Op(operation, tMeta, getConfig());
 	}
 
-	protected void informOperationAdded(DsEvent event, DsTransaction transaction, DsOperation operation) {
-		super.operationAdded(event, transaction, operation);
+	protected Status informOperationAdded(DsEvent event, DsTransaction transaction, DsOperation operation) {
+		return super.operationAdded(event, transaction, operation);
 	}
 
-	private static Event getEventFromOp(Op op){
-		Event event = EventBuilder.withBody(op.toString(), Charset.forName("UTF-8"));
+	private Event getEventFromOp(Op op) throws ParseException, IOException{
+        if (!getOpType(op).isInsert())
+            return null;
 		
-		return event;
+        for (Col col : op)
+            recordBuilder.set(col.getName(), TypeConverter.toAvro(col));
+        
+		GenericRecord record = recordBuilder.build();
+		
+		return EventBuilder.withBody(serialize(record, schema));
+	}
+
+	protected OpType getOpType(Op op) {
+		return op.getOperationType();
+	}
+
+	private byte[] serialize(GenericRecord record, Schema schema) throws IOException {
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		Encoder encoder = EncoderFactory.get().binaryEncoder(out, null);
+		
+		ReflectDatumWriter<GenericRecord> writer = new ReflectDatumWriter<GenericRecord>(schema);
+		
+		writer.write(record, encoder);
+		encoder.flush();
+		
+		return out.toByteArray();
 	}
 
 	@Override
 	public Status transactionCommit(DsEvent event, DsTransaction transaction) {
-		informTransactionCommit(event, transaction);
+		Status retVal = informTransactionCommit(event, transaction);
 		
-		if(!isOperationMode()){
-			Tx ops = getOps(transaction);
-			List<Event> events = Lists.newLinkedList();
-			for (Op op : ops)
-				events.add(getEventFromOp(op));
-			
-			try {
-				flumeClient.appendBatch(events);
-			} catch (EventDeliveryException e) {
-				e.printStackTrace();
+		try{
+			if(!isOperationMode()){
+				Tx ops = getOps(transaction);
+				List<Event> events = Lists.newLinkedList();
+				for (Op op : ops)
+					events.add(getEventFromOp(op));
 				
-				return Status.ABORT;
+				flumeClient.send(events);
 			}
+		}catch(Exception e){
+			retVal = Status.ABEND;
+			
+			LOG.error("there was an error during commit: " + e.getMessage());
 		}
 			
-		return Status.OK;
+		return retVal;
 	}
 	
 	protected Tx getOps(DsTransaction transaction) {
 		return new Tx(transaction, getMetaData(), getConfig());
 	}
 
-	protected void informTransactionCommit(DsEvent event, DsTransaction transaction) {
-		super.transactionCommit(event, transaction);
+	protected Status informTransactionCommit(DsEvent event, DsTransaction transaction) {
+		return super.transactionCommit(event, transaction);
 	}
 
 	@Override
 	public Status transactionRollback(DsEvent e, DsTransaction tx) {
-		informTransactionRollBack(e, tx);
+		Status retVal = informTransactionRollBack(e, tx);
 		
-		return Status.OK;
+		return retVal;
 	}
 
-	protected void informTransactionRollBack(DsEvent e, DsTransaction tx) {
-		super.transactionRollback(e, tx);
+	protected Status informTransactionRollBack(DsEvent e, DsTransaction tx) {
+		return super.transactionRollback(e, tx);
 	}
 
 	@Override
@@ -147,17 +197,39 @@ public class FlumeHandler extends AbstractHandler {
 	
 	@Override
 	public void destroy() {
-		flumeClient.close();
+		flumeClient.disconnect();
 		
 		super.destroy();
 	}
 	
     public void setFlumeHost(String flumeHost) {
-        this.flumeHost = flumeHost;
+        flumeClient.setHost(flumeHost);
     }
 
     public void setFlumePort(String flumePort) {
-        this.flumePort = Integer.parseInt(flumePort);
+    	flumeClient.setPort(Integer.parseInt(flumePort));
     }
+    
+    /**
+     * Must be specified with the following syntax:
+     * dataset:hdfs:/<path>/<namespace>/<dataset-name>
+     * 
+     * The Hadoop configuration files should be on your classpath
+     * Otherwise you can use the following syntax:
+     * dataset:hdfs://<host>[:port]/<path>/<namespace>/<dataset-name>
+     * 
+     * @param uri
+     */
+    public void setDatasetURI(String uri){
+    	try {
+			this.dataset_uri = new URI(uri);
+		} catch (URISyntaxException e) {
+			Throwables.propagate(e);
+		}
+    }
+
+	public FlumeClient getFlumeClient() {
+		return new FlumeClient();
+	}
 	
 }
