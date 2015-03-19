@@ -68,10 +68,10 @@ public class TypeConverterTests {
 
 	@Test
 	public void timestamp() throws ParseException {
-		String time = "2009-01-15 12:54:16.123";
+		String time = "2015-03-19:17:14:02.134463000";
 		
 		Calendar cal = Calendar.getInstance();
-		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.FRANCE);
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd:HH:mm:ss.SSSSSSSSS", Locale.FRANCE);
 		cal.setTime(sdf.parse(time));
 		
 		Col col = mock(Col.class);

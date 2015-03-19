@@ -77,18 +77,24 @@ public class TestHandler extends AbstractHandler {
 				print(getOp(operation));
 				writer.write("\n");
 			}
-		}catch(Exception e){
-			retVal = Status.ABEND;
-			
-			LOG.error("there was an error during operation added: " + e.getMessage());
+		} catch (IOException e) {
+			e.printStackTrace();
+		}finally{
+			try {
+				writer.flush();
+			} catch (IOException e) {}
 		}
+		
+//		retVal = Status.ABEND;
+//		LOG.error("there was an error during operation added: " + e.getMessage());
+		
 		
 		return retVal;
 	}
 
 	protected Op getOp(DsOperation operation) {
 		final TableMetaData tMeta = getMetaData().getTableMetaData(operation.getTableName());
-		
+
 		return new Op(operation, tMeta, getConfig());
 	}
 
@@ -110,20 +116,26 @@ public class TestHandler extends AbstractHandler {
 		String out = new String();
 		
 		writer.write("Name: " + col.getName());
-		writer.write("  ValueString: " + col.getValue());
+		writer.write("  ValueString: " + col.getAfter().getValue());
 		try {
 			Object value = TypeConverter.toAvro(col);
 			writer.write("  TypeConverter: " + value.getClass() + " " + value);
 		} catch (ParseException e) {
 			e.printStackTrace();
+			writer.write("  TypeConverter: parseError-" + e.getMessage());
+		} catch (Exception e) {
 			writer.write("  TypeConverter: error-" + e.getMessage());
 		}
 		try {
 			Object value = TypeConverter.toOracleSQLType(col);
 			writer.write("  oracle.sql: " + value.getClass() + " " + value);
+		} catch (ParseException e) {
+			e.printStackTrace();
+			writer.write("  oracle.sql: parseError-" + e.getMessage());
 		} catch (Exception e) {
 			e.printStackTrace();
-			writer.write("  oracle.sql: error-" + e.getMessage());
+			LOG.error("Information regarding oracle.sql: error", e);
+			writer.write("  oracle.sql: error" + e.getMessage());
 		}
 		
 		return out.concat("\n");
@@ -150,6 +162,10 @@ public class TestHandler extends AbstractHandler {
 			retVal = Status.ABEND;
 			
 			LOG.error("there was an error during commit: " + e.getMessage());
+		}finally{
+			try {
+				writer.flush();
+			} catch (IOException e) {}
 		}
 			
 		return retVal;
