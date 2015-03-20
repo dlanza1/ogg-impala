@@ -16,6 +16,7 @@ import org.junit.Test;
 import com.goldengate.atg.datasource.DsColumn;
 import com.goldengate.atg.datasource.adapt.Col;
 import com.goldengate.atg.datasource.meta.DsType;
+import com.oracle.gg.datapump.TypeConverter.AvroType;
 
 public class TypeConverterTests {
 	
@@ -28,7 +29,10 @@ public class TypeConverterTests {
 		Col col = getMockedCol(oracle_max_integer, Types.INTEGER);
 		
 		try {
-			Assert.assertEquals(oracle_max_integer, TypeConverter.toAvro(col).toString());
+			AvroType avroType = TypeConverter.getAvroType(col.getDataType().getJDBCType());
+			Object value = avroType.getValue(col.getValue());
+			
+			Assert.assertEquals(oracle_max_integer, value.toString());
 		} catch (ParseException e) {
 			e.printStackTrace();
 			Assert.fail();
@@ -37,7 +41,10 @@ public class TypeConverterTests {
 		col = getMockedCol(oracle_min_integer, Types.INTEGER);
 		
 		try {
-			Assert.assertEquals(oracle_min_integer, TypeConverter.toAvro(col).toString());
+			AvroType avroType = TypeConverter.getAvroType(col.getDataType().getJDBCType());
+			Object value = avroType.getValue(col.getValue());
+			
+			Assert.assertEquals(oracle_min_integer, value.toString());
 		} catch (ParseException e) {
 			e.printStackTrace();
 			Assert.fail();
@@ -54,9 +61,10 @@ public class TypeConverterTests {
 
 		Col col = getMockedCol(decimal, Types.DECIMAL);
 		
-		byte[] avro = (byte[]) TypeConverter.toAvro(col);
+		AvroType avroType = TypeConverter.getAvroType(col.getDataType().getJDBCType());
+		byte[] value = (byte[]) avroType.getValue(col.getValue());
 		
-		Assert.assertEquals(decimal, new BigDecimal(new BigInteger(avro), scale).toString());
+		Assert.assertEquals(decimal, new BigDecimal(new BigInteger(value), scale).toString());
 	}
 
 	@Test
@@ -70,15 +78,16 @@ public class TypeConverterTests {
 		
 		Col col = getMockedCol(date + "." + millis, Types.TIMESTAMP);
 		
-		Long avro = (Long) TypeConverter.toAvro(col);
+		AvroType avroType = TypeConverter.getAvroType(col.getDataType().getJDBCType());
+		long value = (long) avroType.getValue(col.getValue());
 		
 		//Check seconds
 		Calendar cal_avro = Calendar.getInstance();
-		cal_avro.setTimeInMillis(avro / (1000 * 1000 * 1000) * 1000);
+		cal_avro.setTimeInMillis(value / (1000 * 1000 * 1000) * 1000);
 		Assert.assertEquals(cal.getTime().getTime(), cal_avro.getTime().getTime());
 		
 		//Check milliseconds
-		Assert.assertEquals(Long.parseLong(millis), avro % (1000 * 1000 * 1000));
+		Assert.assertEquals(Long.parseLong(millis), value % (1000 * 1000 * 1000));
 	}
 
 	private Col getMockedCol(String return_value, int jdbcType) {
@@ -87,6 +96,7 @@ public class TypeConverterTests {
 		doReturn(return_value).when(dsColumn).getValue();
 		doReturn(false).when(dsColumn).isValueNull();
 		Col col = mock(Col.class);
+		doReturn(return_value).when(col).getValue();
 		doReturn(dsColumn).when(col).getAfter();
 		DsType dsType = mock(DsType.class);
 		doReturn(jdbcType).when(dsType).getJDBCType();

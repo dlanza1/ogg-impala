@@ -8,8 +8,6 @@ import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.List;
 
-import oracle.jdbc.OracleTypes;
-
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
 import org.apache.avro.SchemaBuilder.FieldAssembler;
@@ -20,6 +18,7 @@ import org.apache.avro.io.Encoder;
 import org.apache.avro.io.EncoderFactory;
 import org.apache.avro.reflect.ReflectDatumWriter;
 import org.apache.flume.Event;
+import org.apache.flume.FlumeClient;
 import org.apache.flume.event.EventBuilder;
 import org.kitesdk.data.Dataset;
 import org.kitesdk.data.DatasetDescriptor;
@@ -44,6 +43,7 @@ import com.goldengate.atg.datasource.meta.TableMetaData;
 import com.goldengate.atg.datasource.meta.TableName;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Lists;
+import com.oracle.gg.datapump.TypeConverter.AvroType;
 
 public class FlumeHandler extends AbstractHandler {
 	final private static Logger LOG = LoggerFactory.getLogger(FlumeHandler.class);
@@ -62,7 +62,7 @@ public class FlumeHandler extends AbstractHandler {
 	
 	@Override
 	public void init(DsConfiguration conf, DsMetaData metaData) {
-		LOG.info("Initializing handler...");
+		LOG.info("initializing...");
 		
 		if(dataset_uri == null)
 			throw new RuntimeException("the dataset must be specified in the properties file");
@@ -77,27 +77,35 @@ public class FlumeHandler extends AbstractHandler {
 			dataset = (Dataset<Record>) Datasets.load(dataset_uri, Record.class);
 		}else{
 			LOG.info("the dataset "+dataset_uri+" does not exist, so it is going to be created");
-			DatasetDescriptor descriptor = getDescriptor(metaData);
+			DatasetDescriptor descriptor = generateDescriptor(metaData);
 			dataset = (Dataset<Record>) Datasets.create(dataset_uri, descriptor, Record.class);
 		}
 		
 		schema = dataset.getDescriptor().getSchema();
-		LOG.info("Dataset schema = " + schema);
+		LOG.info("dataset schema = " + schema);
 		
 		recordBuilder = new GenericRecordBuilder(schema);
 		
-		LOG.info("Handler was inicialized");
+		LOG.info("inicialized");
 	}
 	
-	private DatasetDescriptor getDescriptor(DsMetaData metaData) {
+	private DatasetDescriptor generateDescriptor(DsMetaData metaData) {
 		TableMetaData tableMetadata = metaData.getTableMetaData(new TableName(sourceTable));
 		
 		ArrayList<ColumnMetaData> columnsMetadata = tableMetadata.getColumnMetaData();
 		
 		FieldAssembler<Schema> schema = SchemaBuilder.record("record").fields();
 
-		for (ColumnMetaData columnMetaData : columnsMetadata) {
-			addField(schema, columnMetaData);
+		try{
+			for (ColumnMetaData columnMetaData : columnsMetadata) {
+				AvroType avroType = TypeConverter.getAvroType(columnMetaData.getDataType().getJDBCType());
+				
+				avroType.addField(schema, columnMetaData);
+			}
+		}catch(ParseException e){
+			LOG.error("there was an error creating the schema", e);
+			
+			Throwables.propagate(e);
 		}
 		
 		Builder builder = new DatasetDescriptor.Builder();
@@ -105,50 +113,6 @@ public class FlumeHandler extends AbstractHandler {
 		builder.format("parquet");
 		
 		return builder.build();
-	}
-
-	private void addField(FieldAssembler<Schema> schema, ColumnMetaData columnMetaData) {
-		String columnName = columnMetaData.getColumnName();
-		
-		switch(columnMetaData.getDataType().getJDBCType()){
-		case OracleTypes.CHAR:
-		case OracleTypes.VARCHAR:
-		case OracleTypes.LONGVARCHAR:
-			schema.requiredString(columnName);
-			return;
-		case OracleTypes.NUMERIC:
-		case OracleTypes.DECIMAL:
-			schema.requiredBytes(columnName);
-			return;
-		case OracleTypes.BIT:
-			schema.requiredBoolean(columnName);
-		case OracleTypes.TINYINT:
-		case OracleTypes.SMALLINT:
-		case OracleTypes.INTEGER:
-			schema.requiredInt(columnName);
-			return;
-		case OracleTypes.BIGINT:
-			schema.requiredLong(columnName);
-			return;
-		case OracleTypes.REAL:
-			schema.requiredFloat(columnName);
-			return;
-		case OracleTypes.FLOAT:
-		case OracleTypes.BINARY_FLOAT:
-		case OracleTypes.DOUBLE:
-		case OracleTypes.BINARY_DOUBLE:
-			schema.requiredDouble(columnName);
-			return;
-		case OracleTypes.DATE:
-		case OracleTypes.TIME:
-		case OracleTypes.TIMESTAMP:
-		case OracleTypes.TIMESTAMPTZ:
-			schema.requiredLong(columnName);
-			return;
-		default:
-			schema.requiredString(columnName);
-			return;
-		}
 	}
 
 	protected void informInit(DsConfiguration conf, DsMetaData metaData) {
@@ -197,8 +161,11 @@ public class FlumeHandler extends AbstractHandler {
         if (!getOpType(op).isInsert())
             return null;
 		
-        for (Col col : op)
-            recordBuilder.set(col.getName(), TypeConverter.toAvro(col));
+        for (Col col : op){
+        	AvroType avroType = TypeConverter.getAvroType(col.getDataType().getJDBCType());
+        	
+            recordBuilder.set(col.getName(), avroType.getValue(col.getValue()));
+        }
         
 		GenericRecord record = recordBuilder.build();
 		

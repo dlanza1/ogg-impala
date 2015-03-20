@@ -20,6 +20,7 @@ import com.goldengate.atg.datasource.adapt.Op;
 import com.goldengate.atg.datasource.adapt.Tx;
 import com.goldengate.atg.datasource.meta.DsMetaData;
 import com.goldengate.atg.datasource.meta.TableMetaData;
+import com.oracle.gg.datapump.TypeConverter.AvroType;
 
 public class TestHandler extends AbstractHandler {
 	final private static Logger LOG = Logger.getLogger(TestHandler.class);
@@ -106,28 +107,35 @@ public class TestHandler extends AbstractHandler {
 		writer.write("op, cols:\n");
 		
         for (Col col : op){
-        	writer.write(print(col));
+        	writer.write(toString(col));
         }
         
         writer.write("\n");
 	}
 
-	private String print(Col col) throws IOException {
-		String out = new String();
+	private String toString(Col col) throws IOException {
+		StringBuilder out = new StringBuilder();
 		
-		writer.write("Name: " + col.getName());
-		writer.write("  ValueString: " + col.getAfter().getValue());
+		if(col.getAfter().isValueNull())
+			out.append("NULL VALUE");
+		
+		out.append("Name: " + col.getName());
+		out.append("  ValueString: " + col.getAfter().getValue());
 		try {
-			Object value = TypeConverter.toAvro(col);
-			writer.write("  TypeConverter: " + value.getClass() + " " + value);
-		} catch (ParseException e) {
-			e.printStackTrace();
-			writer.write("  TypeConverter: parseError-" + e.getMessage());
+			if(col.isMissing())
+				throw new ParseException("the value is missing, it should be stored", 0);
+			
+			AvroType avroType = TypeConverter.getAvroType(col.getDataType().getJDBCType());
+			Object value = avroType.getValue(col.getValue());
+			
+			out.append("  TypeConverter: " + value.getClass() + " " + value);
 		} catch (Exception e) {
-			writer.write("  TypeConverter: error-" + e.getMessage());
+			out.append("  TypeConverter: error");
+			
+			LOG.error("TypeConverter: error", e);
 		}
 		
-		return out.concat("\n");
+		return out.append("\n").toString();
 	}
 
 	protected OpType getOpType(Op op) {

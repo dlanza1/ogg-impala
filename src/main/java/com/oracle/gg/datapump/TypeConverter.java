@@ -1,20 +1,16 @@
 package com.oracle.gg.datapump;
 
 import java.math.BigDecimal;
-import java.sql.SQLException;
 import java.sql.Types;
 import java.text.ParseException;
 
-import oracle.jdbc.OracleTypes;
+import org.apache.avro.Schema;
+import org.apache.avro.SchemaBuilder.FieldAssembler;
 
-import org.apache.log4j.Logger;
-
-import com.goldengate.atg.datasource.adapt.Col;
+import com.goldengate.atg.datasource.meta.ColumnMetaData;
 import com.goldengate.atg.util.SettableClock;
 
 public class TypeConverter {
-	
-	final private static Logger LOG = Logger.getLogger(TypeConverter.class);
 	
 	/**
 	 * Primitive Avro tpyes
@@ -27,6 +23,12 @@ public class TypeConverter {
 			@Override
 			public Object getValue(String value) {
 				return null;
+			}
+
+			@Override
+			public void addField(FieldAssembler<Schema> schema,
+					ColumnMetaData columnMetaData) {
+				throw new RuntimeException("the Avro type NULL is not compatibly");
 			}
 		},
 		/**
@@ -43,6 +45,16 @@ public class TypeConverter {
 					throw new ParseException("there was a problem parsing " + value + " to Boolean: "
 									+ " no contain 'true' or 'false' (no case sensitive)", 0);
 			}
+
+			@Override
+			public void addField(FieldAssembler<Schema> schema,
+					ColumnMetaData columnMetaData) {
+				if(columnMetaData.isNullable()){
+					schema.optionalBoolean(columnMetaData.getColumnName());
+				}else{
+					schema.requiredBoolean(columnMetaData.getColumnName());
+				}
+			}
 		},
 		/**
 		 * (4 bytes) signed integer
@@ -51,10 +63,20 @@ public class TypeConverter {
 			@Override
 			public Object getValue(String value) throws ParseException {
 				try {
-					return Integer.parseInt(removeUndesirableCharacters(value));
+					return Integer.parseInt(value);
 				} catch (Exception e) {
 					throw new ParseException("there was a problem parsing " + value + " to Integer: "
 									+ e.getMessage(), 0);
+				}
+			}
+			
+			@Override
+			public void addField(FieldAssembler<Schema> schema,
+					ColumnMetaData columnMetaData) {
+				if(columnMetaData.isNullable()){
+					schema.optionalInt(columnMetaData.getColumnName());
+				}else{
+					schema.requiredInt(columnMetaData.getColumnName());
 				}
 			}
 		},
@@ -65,7 +87,7 @@ public class TypeConverter {
 			@Override
 			public Object getValue(String value) throws ParseException {
 				try {
-					return Long.parseLong(removeUndesirableCharacters(value));
+					return Long.parseLong(value);
 				} catch (Exception e) {
 					try{
 						String[] split = value.split("\\.");
@@ -85,6 +107,16 @@ public class TypeConverter {
 					}
 				}
 			}
+			
+			@Override
+			public void addField(FieldAssembler<Schema> schema,
+					ColumnMetaData columnMetaData) {
+				if(columnMetaData.isNullable()){
+					schema.optionalLong(columnMetaData.getColumnName());
+				}else{
+					schema.requiredLong(columnMetaData.getColumnName());
+				}
+			}
 		},
 		/**
 		 * single precision (4 bytes) IEEE 754 floating-point number
@@ -93,10 +125,20 @@ public class TypeConverter {
 			@Override
 			public Object getValue(String value) throws ParseException {
 				try {
-					return Float.parseFloat(removeUndesirableCharacters(value));
+					return Float.parseFloat(value);
 				} catch (Exception e) {
 					throw new ParseException("there was a problem parsing " + value + " to Float: "
 									+ e.getMessage(), 0);
+				}
+			}
+			
+			@Override
+			public void addField(FieldAssembler<Schema> schema,
+					ColumnMetaData columnMetaData) {
+				if(columnMetaData.isNullable()){
+					schema.optionalFloat(columnMetaData.getColumnName());
+				}else{
+					schema.requiredFloat(columnMetaData.getColumnName());
 				}
 			}
 		},
@@ -107,10 +149,20 @@ public class TypeConverter {
 			@Override
 			public Object getValue(String value) throws ParseException {
 				try {
-					return Double.parseDouble(removeUndesirableCharacters(value));
+					return Double.parseDouble(value);
 				} catch (Exception e) {
 					throw new ParseException("there was a problem parsing " + value + " to Double: "
 									+ e.getMessage(), 0);
+				}
+			}
+			
+			@Override
+			public void addField(FieldAssembler<Schema> schema,
+					ColumnMetaData columnMetaData) {
+				if(columnMetaData.isNullable()){
+					schema.optionalDouble(columnMetaData.getColumnName());
+				}else{
+					schema.requiredDouble(columnMetaData.getColumnName());
 				}
 			}
 		},
@@ -124,56 +176,70 @@ public class TypeConverter {
 
 				return decimal.unscaledValue().toByteArray();
 			}
+			
+			@Override
+			public void addField(FieldAssembler<Schema> schema,
+					ColumnMetaData columnMetaData) {
+				if(columnMetaData.isNullable()){
+					schema.optionalBytes(columnMetaData.getColumnName());
+				}else{
+					schema.requiredBytes(columnMetaData.getColumnName());
+				}
+			}
 		},
 		STRING {
 			@Override
 			public Object getValue(String value) {
 				return value;
 			}
+			
+			@Override
+			public void addField(FieldAssembler<Schema> schema,
+					ColumnMetaData columnMetaData) {
+				if(columnMetaData.isNullable()){
+					schema.optionalString(columnMetaData.getColumnName());
+				}else{
+					schema.requiredString(columnMetaData.getColumnName());
+				}
+			}
 		};
 
 		public abstract Object getValue(String value) throws ParseException;
 
+		public abstract void addField(FieldAssembler<Schema> schema, ColumnMetaData columnMetaData);
 	}
 
 	/**
-	 * Resolve a database-specific type to the Java type that should contain it.
+	 * Resolve a database-specific type to the Avro type that should contain it.
 	 * 
 	 * @throws ParseException 
 	 */
-	public static Object toAvro(Col col) throws ParseException {
-		if(col.getAfter().isValueNull())
-			return null;
-		
-		if(col.isMissing())
-			throw new ParseException("the value is missing, it should be stored", 0);
-		
-		String val = col.getAfter().getValue();
-		
-		switch(col.getDataType().getJDBCType()){
+	public static AvroType getAvroType(int jdbcType) throws ParseException {
+
+		switch(jdbcType){
 		case Types.BIT:
 		case Types.BOOLEAN:
-			return AvroType.BOOLEAN.getValue(val);
+			return AvroType.BOOLEAN;
 		case Types.INTEGER:
 		case Types.TINYINT:
 		case Types.SMALLINT:
-			return AvroType.INT.getValue(val);
+			return AvroType.INT;
 		case Types.BIGINT:
-			return AvroType.LONG.getValue(val);
+			return AvroType.LONG;
 		case Types.REAL:
+			return AvroType.FLOAT;
 		case 100: //BINARY_FLOAT
-			return AvroType.FLOAT.getValue(val);
 		case Types.FLOAT:        
 		case Types.DOUBLE:
 		case 101: //BINARY_DOUBLE
-			return AvroType.DOUBLE.getValue(val);
+			return AvroType.DOUBLE;
 		case Types.NUMERIC:
 		case Types.DECIMAL:
-			return AvroType.BYTES.getValue(val);
+			return AvroType.BYTES;
 	    case Types.DATE:
 	    case Types.TIME:
 	    case Types.TIMESTAMP:
-	    	return AvroType.LONG.getValue(val);
+	    	return AvroType.LONG;
 		case Types.VARCHAR:
 		case Types.CHAR:
 		case Types.LONGVARCHAR:
@@ -181,80 +247,15 @@ public class TypeConverter {
 		case Types.NVARCHAR:
 		case Types.NCHAR:
 		case Types.CLOB:
-			return AvroType.STRING.getValue(val);
+			return AvroType.STRING;
 		case Types.BLOB:
 		case Types.BINARY:
 		case Types.VARBINARY:
 		case Types.LONGVARBINARY:
-			return AvroType.STRING.getValue(val);
+			return AvroType.STRING;
 		default:
-			throw new ParseException("the JDBCT type " + col.getDataType().getJDBCType() + " is not compatible", 0);
+			return AvroType.STRING;
 		}
 	}
 	
-	/**
-	 * Resolve a database-specific type to the Java type that should contain it.
-	 * 
-	 * @throws ParseException 
-	 * @throws SQLException 
-	 */
-	public static Object toOracleSQLType(Col col) throws ParseException, SQLException {	
-		LOG.warn(col);
-		LOG.warn(col.getAfter());
-		LOG.warn(col.getDataType());
-		LOG.warn(col.getDataType().getJDBCType());
-		
-		if(col.getAfter().isValueNull())
-			return null;
-		
-		if(col.isMissing())
-			throw new ParseException("the value is missing, it should be stored", 0);
-		
-		byte[] val = col.getAfter().getBinary();
-		
-		LOG.warn(val);
-		
-		//http://docs.oracle.com/cd/E11882_01/java.112/e16548/datacc.htm#JJDBC28365
-		switch(col.getDataType().getJDBCType()){
-		case OracleTypes.CHAR:
-		case OracleTypes.VARCHAR:
-		case OracleTypes.LONGVARCHAR:
-			return new String(val);
-		case OracleTypes.NUMERIC:
-		case OracleTypes.DECIMAL:
-			return oracle.sql.NUMBER.toBigDecimal(val).unscaledValue().toByteArray();
-		case OracleTypes.BIT:
-			return oracle.sql.NUMBER.toBoolean(val);
-		case OracleTypes.TINYINT:
-			return oracle.sql.NUMBER.toByte(val);
-		case OracleTypes.SMALLINT:
-			return oracle.sql.NUMBER.toShort(val);
-		case OracleTypes.INTEGER:
-			return oracle.sql.NUMBER.toInt(val);
-		case OracleTypes.BIGINT:
-			return oracle.sql.NUMBER.toLong(val);
-		case OracleTypes.REAL:
-			return oracle.sql.NUMBER.toFloat(val);
-		case OracleTypes.FLOAT:
-		case OracleTypes.BINARY_FLOAT:
-		case OracleTypes.DOUBLE:
-		case OracleTypes.BINARY_DOUBLE:
-			return oracle.sql.NUMBER.toDouble(val);
-		case OracleTypes.DATE:
-		case OracleTypes.TIME:
-			return oracle.sql.DATE.toDate(val).getTime() * 1000 * 1000;
-		case OracleTypes.TIMESTAMP:
-		case OracleTypes.TIMESTAMPTZ:
-			return oracle.sql.TIMESTAMP.toTimestamp(val).getTime() * 1000 * 1000;
-		default:
-			return col.getAfter().getValue();
-		}
-		
-	}
- 
-	public static String removeUndesirableCharacters(String value) {
-		return value;
-//		return value.replaceAll("[\\D&&[^\\.]]", "")
-//				.replaceAll("[\\D]", "");
-	}
 }

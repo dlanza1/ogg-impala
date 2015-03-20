@@ -14,9 +14,11 @@ import java.util.List;
 
 import org.apache.flume.Event;
 import org.apache.flume.EventDeliveryException;
+import org.apache.flume.FlumeClient;
 import org.junit.Before;
 import org.junit.Test;
 
+import com.goldengate.atg.datasource.DsConfiguration;
 import com.goldengate.atg.datasource.DsEvent;
 import com.goldengate.atg.datasource.DsOperation;
 import com.goldengate.atg.datasource.DsOperation.OpType;
@@ -24,7 +26,7 @@ import com.goldengate.atg.datasource.DsTransaction;
 import com.goldengate.atg.datasource.adapt.Col;
 import com.goldengate.atg.datasource.adapt.Op;
 import com.goldengate.atg.datasource.adapt.Tx;
-import com.goldengate.atg.datasource.test.DsTestUtils;
+import com.goldengate.atg.datasource.meta.DsMetaData;
 import com.google.common.collect.Lists;
 
 public class FlumeHandlerTest {
@@ -36,7 +38,7 @@ public class FlumeHandlerTest {
 	public void beforeTest(){
 		handler = spy(new FlumeHandler());
 		
-		doNothing().when(handler).informInit(null, null);
+		doNothing().when(handler).informInit((DsConfiguration) any(), (DsMetaData) any());
 		doNothing().when(handler).informTransactionBegin((DsEvent) any(), (DsTransaction) any());
 		doNothing().when(handler).informOperationAdded((DsEvent) any(), (DsTransaction) any(), (DsOperation) any());
 		doNothing().when(handler).informTransactionCommit((DsEvent) any(), (DsTransaction) any());
@@ -190,12 +192,6 @@ public class FlumeHandlerTest {
 		}
 		
 		handler.destroy();
-	}
-	
-	@Test
-	public void gg() {
-		DsTestUtils gg_test = new DsTestUtils();
-
 	}
 
 }
