@@ -97,7 +97,7 @@ public class FlumeHandler extends AbstractHandler {
 		FieldAssembler<Schema> schema = SchemaBuilder.record("record").fields();
 
 		for (ColumnMetaData columnMetaData : columnsMetadata) {
-			addRequiredField(schema, columnMetaData);
+			addField(schema, columnMetaData);
 		}
 		
 		Builder builder = new DatasetDescriptor.Builder();
@@ -107,7 +107,7 @@ public class FlumeHandler extends AbstractHandler {
 		return builder.build();
 	}
 
-	private void addRequiredField(FieldAssembler<Schema> schema, ColumnMetaData columnMetaData) {
+	private void addField(FieldAssembler<Schema> schema, ColumnMetaData columnMetaData) {
 		String columnName = columnMetaData.getColumnName();
 		
 		switch(columnMetaData.getDataType().getJDBCType()){

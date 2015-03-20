@@ -126,17 +126,6 @@ public class TestHandler extends AbstractHandler {
 		} catch (Exception e) {
 			writer.write("  TypeConverter: error-" + e.getMessage());
 		}
-		try {
-			Object value = TypeConverter.toOracleSQLType(col);
-			writer.write("  oracle.sql: " + value.getClass() + " " + value);
-		} catch (ParseException e) {
-			e.printStackTrace();
-			writer.write("  oracle.sql: parseError-" + e.getMessage());
-		} catch (Exception e) {
-			e.printStackTrace();
-			LOG.error("Information regarding oracle.sql: error", e);
-			writer.write("  oracle.sql: error" + e.getMessage());
-		}
 		
 		return out.concat("\n");
 	}

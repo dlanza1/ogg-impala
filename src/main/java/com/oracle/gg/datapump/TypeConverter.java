@@ -68,11 +68,16 @@ public class TypeConverter {
 					return Long.parseLong(removeUndesirableCharacters(value));
 				} catch (Exception e) {
 					try{
-						SettableClock util = new SettableClock();
-						util.setDateFormat("yyyy-MM-dd:HH:mm:ss.SSSSSSSSS");
-						util.setTime(value);
+						String[] split = value.split("\\.");
 						
-						return util.getTime().getTime();
+						SettableClock util = new SettableClock();
+						util.setDateFormat("yyyy-MM-dd:HH:mm:ss");
+						util.setTime(split[0]);
+						
+						long miliseconds = util.getTime().getTime();
+						long nanoseconds = miliseconds * 1000 * 1000;
+						
+						return nanoseconds + Integer.valueOf(split[1]);
 					} catch(Exception ex){
 						ex.printStackTrace();
 						
@@ -159,11 +164,6 @@ public class TypeConverter {
 		case 100: //BINARY_FLOAT
 			return AvroType.FLOAT.getValue(val);
 		case Types.FLOAT:        
-			if(col.getDataType().getPrecision() <= 23){
-				return AvroType.FLOAT.getValue(val);
-			}else{
-				return AvroType.DOUBLE.getValue(val);
-			}
 		case Types.DOUBLE:
 		case 101: //BINARY_DOUBLE
 			return AvroType.DOUBLE.getValue(val);

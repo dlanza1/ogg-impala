@@ -9,11 +9,11 @@ import java.sql.Types;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
-import java.util.Locale;
 
 import org.junit.Assert;
 import org.junit.Test;
 
+import com.goldengate.atg.datasource.DsColumn;
 import com.goldengate.atg.datasource.adapt.Col;
 import com.goldengate.atg.datasource.meta.DsType;
 
@@ -25,11 +25,7 @@ public class TypeConverterTests {
 		String oracle_max_integer = "2147483647";
 		String oracle_min_integer = "-2147483648";
 		
-		Col col = mock(Col.class);
-		doReturn(oracle_max_integer).when(col).getValue();
-		DsType dsType = mock(DsType.class);
-		doReturn(Types.INTEGER).when(dsType).getJDBCType();
-		doReturn(dsType).when(col).getDataType();
+		Col col = getMockedCol(oracle_max_integer, Types.INTEGER);
 		
 		try {
 			Assert.assertEquals(oracle_max_integer, TypeConverter.toAvro(col).toString());
@@ -38,7 +34,8 @@ public class TypeConverterTests {
 			Assert.fail();
 		}
 		
-		doReturn(oracle_min_integer).when(col).getValue();
+		col = getMockedCol(oracle_min_integer, Types.INTEGER);
+		
 		try {
 			Assert.assertEquals(oracle_min_integer, TypeConverter.toAvro(col).toString());
 		} catch (ParseException e) {
@@ -55,11 +52,7 @@ public class TypeConverterTests {
 		String decimal = "891275612501236589.019";
 		int scale = new BigDecimal(decimal).scale();
 
-		Col col = mock(Col.class);
-		doReturn(decimal).when(col).getValue();
-		DsType dsType = mock(DsType.class);
-		doReturn(Types.DECIMAL).when(dsType).getJDBCType();
-		doReturn(dsType).when(col).getDataType();
+		Col col = getMockedCol(decimal, Types.DECIMAL);
 		
 		byte[] avro = (byte[]) TypeConverter.toAvro(col);
 		
@@ -68,24 +61,37 @@ public class TypeConverterTests {
 
 	@Test
 	public void timestamp() throws ParseException {
-		String time = "2015-03-19:17:14:02.134463000";
-		
+		String date = "2015-03-19:17:14:02";
+		String millis = "123456789";
+
 		Calendar cal = Calendar.getInstance();
-		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd:HH:mm:ss.SSSSSSSSS", Locale.FRANCE);
-		cal.setTime(sdf.parse(time));
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd:HH:mm:ss");
+		cal.setTime(sdf.parse(date));
 		
-		Col col = mock(Col.class);
-		doReturn(time).when(col).getValue();
-		DsType dsType = mock(DsType.class);
-		doReturn(Types.TIMESTAMP).when(dsType).getJDBCType();
-		doReturn(dsType).when(col).getDataType();
+		Col col = getMockedCol(date + "." + millis, Types.TIMESTAMP);
 		
 		Long avro = (Long) TypeConverter.toAvro(col);
 		
+		//Check seconds
 		Calendar cal_avro = Calendar.getInstance();
-		cal_avro.setTimeInMillis(avro);
+		cal_avro.setTimeInMillis(avro / (1000 * 1000 * 1000) * 1000);
+		Assert.assertEquals(cal.getTime().getTime(), cal_avro.getTime().getTime());
 		
-		Assert.assertEquals(time, sdf.format(cal_avro.getTime()));
-	
+		//Check milliseconds
+		Assert.assertEquals(Long.parseLong(millis), avro % (1000 * 1000 * 1000));
+	}
+
+	private Col getMockedCol(String return_value, int jdbcType) {
+
+		DsColumn dsColumn = mock(DsColumn.class);
+		doReturn(return_value).when(dsColumn).getValue();
+		doReturn(false).when(dsColumn).isValueNull();
+		Col col = mock(Col.class);
+		doReturn(dsColumn).when(col).getAfter();
+		DsType dsType = mock(DsType.class);
+		doReturn(jdbcType).when(dsType).getJDBCType();
+		doReturn(dsType).when(col).getDataType();
+		
+		return col;
 	}
 }
