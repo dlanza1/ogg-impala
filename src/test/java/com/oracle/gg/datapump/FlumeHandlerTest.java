@@ -10,6 +10,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.sql.Types;
 import java.util.List;
 
 import org.apache.flume.Event;
@@ -23,6 +24,7 @@ import com.goldengate.atg.datasource.DsEvent;
 import com.goldengate.atg.datasource.DsOperation;
 import com.goldengate.atg.datasource.DsOperation.OpType;
 import com.goldengate.atg.datasource.DsTransaction;
+import com.goldengate.atg.datasource.GGDataSource.Status;
 import com.goldengate.atg.datasource.adapt.Col;
 import com.goldengate.atg.datasource.adapt.Op;
 import com.goldengate.atg.datasource.adapt.Tx;
@@ -40,12 +42,12 @@ public class FlumeHandlerTest {
 		
 		doNothing().when(handler).informInit((DsConfiguration) any(), (DsMetaData) any());
 		doNothing().when(handler).informTransactionBegin((DsEvent) any(), (DsTransaction) any());
-		doNothing().when(handler).informOperationAdded((DsEvent) any(), (DsTransaction) any(), (DsOperation) any());
-		doNothing().when(handler).informTransactionCommit((DsEvent) any(), (DsTransaction) any());
-		doNothing().when(handler).informTransactionRollBack((DsEvent) any(), (DsTransaction) any());
+		doReturn(Status.OK).when(handler).informOperationAdded((DsEvent) any(), (DsTransaction) any(), (DsOperation) any());
+		doReturn(Status.OK).when(handler).informTransactionCommit((DsEvent) any(), (DsTransaction) any());
+		doReturn(Status.OK).when(handler).informTransactionRollBack((DsEvent) any(), (DsTransaction) any());
 		
-//		flumeClient = spy(new FlumeClient());
-//		doReturn(flumeClient).when(handler).getFlumeClient();
+		flumeClient = spy(new FlumeClient());
+		handler.setFlumeClient(flumeClient);
 		
 		handler.setFlumeHost("itrac901.cern.ch");
 		handler.setFlumePort("41444");
@@ -78,21 +80,17 @@ public class FlumeHandlerTest {
 		handler.init(null, null);
 	}
 
-	//@Test
+	@Test
 	public void noOperationalMode() throws EventDeliveryException {
 		when(handler.isOperationMode()).thenReturn(false);
+		doReturn(OpType.DO_INSERT).when(handler).getOpType((Op) any());
 		
 		Tx ops_ = mock(Tx.class);
-		Op op_ = mock(Op.class);
-		doReturn("string").when(op_).toString();
-		doReturn(null).when(op_).getOperationType();
 		List<Op> l = Lists.newLinkedList();
 		for (int i = 0; i < 10; i++)
-			l.add(op_);
+			l.add(getMockedOp());
 		doReturn(l.iterator()).when(ops_).iterator();
 		doReturn(ops_).when(handler).getOps((DsTransaction) any());
-		
-		handler.init(null, null);
 		
 		DsOperation op = mock(DsOperation.class);
 		when(op.toString()).thenReturn("op");
@@ -139,7 +137,7 @@ public class FlumeHandlerTest {
 		for (int i = 0; i < 10; i++)
 			handler.operationAdded(null, null, null);
 		
-		verify(flumeClient, times(0)).send((Event) any());
+		verify(flumeClient, times(10)).send((Event) any());
 	}
 	
 	private Op getMockedOp() {
@@ -147,25 +145,13 @@ public class FlumeHandlerTest {
 		doReturn("operational mode").when(op).toString();
 		
 		List<Col> l = Lists.newLinkedList();
-		Col col = mock(Col.class);
-		doReturn("VARIABLE_ID").when(col).getName();
-		doReturn(1).when(col).getData().getBinary();
-		doReturn(false).when(col).isValueNull();
-		doReturn(java.sql.Types.TIMESTAMP).when(col).getDataType().getJDBCType();
+		Col col = TypeConverterTests.getMockedCol("VARIABLE_ID", String.valueOf((int)(Math.random() * 23)), Types.INTEGER);
 		l.add(col);
 		
-		col = mock(Col.class);
-		doReturn("UTC_STAMP").when(col).getName();
-		doReturn("1").when(col).getValue();
-		doReturn(false).when(col).isValueNull();
-		doReturn(java.sql.Types.TIMESTAMP).when(col).getDataType().getJDBCType();
+		col = TypeConverterTests.getMockedCol("UTC_STAMP", "2015-03-20:11:52:46.335853000", Types.TIMESTAMP);
 		l.add(col);
 		
-		col = mock(Col.class);
-		doReturn("VALUE").when(col).getName();
-		doReturn("1").when(col).getValue();
-		doReturn(false).when(col).isValueNull();
-		doReturn(java.sql.Types.TIMESTAMP).when(col).getDataType().getJDBCType();
+		col = TypeConverterTests.getMockedCol("VALUE", String.valueOf(Math.random() * 24123f), Types.DOUBLE);
 		l.add(col);
 
 		doReturn(l.iterator()).when(op).iterator();
@@ -174,24 +160,58 @@ public class FlumeHandlerTest {
 	}
 
 	@Test
-	public void sendEvents() {
-		flumeClient = spy(new FlumeClient());
-		doReturn(flumeClient).when(handler).getFlumeClient();
+	public void sendEvent() {
+		doReturn(OpType.DO_INSERT).when(handler).getOpType((Op) any());
+		
+		doReturn(false).when(handler).isOperationMode();
 		
 		handler.init(null, null);
 		
-		when(handler.isOperationMode()).thenReturn(true);
+		float num_events = 1000;
 		
-		for (int i = 0; i < 10; i++){
-			Op op_ = mock(Op.class);
-			doReturn("operation=" + 1).when(op_).toString();
-			doReturn(OpType.DO_INSERT).when(op_).getOperationType();
+		long t = System.currentTimeMillis();
+		
+		for (int i = 0; i < num_events; i++){
+			Op op_ = getMockedOp();
 			doReturn(op_).when(handler).getOp((DsOperation) any());
 			
 			handler.operationAdded(null, null, null);
 		}
 		
+		System.out.println("ms per event: " + (System.currentTimeMillis() - t) / num_events);
+		
 		handler.destroy();
 	}
 
+	@Test
+	public void sendEvents() {
+		doReturn(OpType.DO_INSERT).when(handler).getOpType((Op) any());
+		
+		doReturn(false).when(handler).isOperationMode();
+		
+		handler.init(null, null);
+		
+		when(handler.isOperationMode()).thenReturn(true);
+		
+		float num_events = 10000;
+
+		flumeClient.setBanchSize(100000);
+		flumeClient.disconnect();
+		flumeClient.connect();
+		
+		Tx ops_ = mock(Tx.class);
+		List<Op> l = Lists.newLinkedList();
+		for (int i = 0; i < num_events; i++)
+			l.add(getMockedOp());
+		doReturn(l.iterator()).when(ops_).iterator();
+		doReturn(ops_).when(handler).getOps((DsTransaction) any());
+		
+		long t = System.currentTimeMillis();
+		
+		handler.transactionCommit(null, null);
+		
+		System.out.println("ms per event: " + (System.currentTimeMillis() - t) / num_events);
+		
+		handler.destroy();
+	}
 }

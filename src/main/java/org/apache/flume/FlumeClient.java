@@ -10,6 +10,8 @@ import org.apache.flume.api.RpcClientFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Throwables;
+
 public class FlumeClient {
 	final private static Logger LOG = LoggerFactory.getLogger(FlumeClient.class);
 
@@ -59,20 +61,15 @@ public class FlumeClient {
 			return;
 		
 		try {
+			if(rpcClient == null)
+				System.out.println("rpcClient null");
+			
 			rpcClient.append(event);
 		} catch (EventDeliveryException e) {
-			reset();
+			LOG.error("the event could not be sent to the agent", e);
 			
-			throw new EventDeliveryException(e);
+			Throwables.propagate(e);
 		}
-	}
-
-	private void reset() {
-		LOG.info("Resetting connection...");
-		
-		connect();
-		rpcClient = null;
-		disconnect();
 	}
 
 	public void send(List<Event> events) throws EventDeliveryException {
@@ -82,12 +79,15 @@ public class FlumeClient {
 						+ ") greater than the configured banch size (" + rpcClient.getBatchSize() + "), "
 						+ "so the likelihood of duplicate Events being stored will increase. "
 						+ "Maybe you should increase the batch size.");
+			long t = System.currentTimeMillis();
 			
 			rpcClient.appendBatch(events);
-		} catch (EventDeliveryException e) {
-			reset();
 			
-			throw new EventDeliveryException(e);
+			System.out.println("RPC: ms per event: " + (System.currentTimeMillis() - t) / (float)events.size());
+		} catch (EventDeliveryException e) {
+			LOG.error("the events could not be sent to the agent", e);
+
+			Throwables.propagate(e);
 		}
 	}
 	

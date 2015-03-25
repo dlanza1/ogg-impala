@@ -79,16 +79,13 @@ public class TestHandler extends AbstractHandler {
 				writer.write("\n");
 			}
 		} catch (IOException e) {
-			e.printStackTrace();
+			retVal = Status.ABEND;
+			LOG.error("there was an error during operation added", e);
 		}finally{
 			try {
 				writer.flush();
 			} catch (IOException e) {}
 		}
-		
-//		retVal = Status.ABEND;
-//		LOG.error("there was an error during operation added: " + e.getMessage());
-		
 		
 		return retVal;
 	}

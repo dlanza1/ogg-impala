@@ -26,7 +26,7 @@ public class TypeConverterTests {
 		String oracle_max_integer = "2147483647";
 		String oracle_min_integer = "-2147483648";
 		
-		Col col = getMockedCol(oracle_max_integer, Types.INTEGER);
+		Col col = getMockedCol(null, oracle_max_integer, Types.INTEGER);
 		
 		try {
 			AvroType avroType = TypeConverter.getAvroType(col.getDataType().getJDBCType());
@@ -38,7 +38,7 @@ public class TypeConverterTests {
 			Assert.fail();
 		}
 		
-		col = getMockedCol(oracle_min_integer, Types.INTEGER);
+		col = getMockedCol(null, oracle_min_integer, Types.INTEGER);
 		
 		try {
 			AvroType avroType = TypeConverter.getAvroType(col.getDataType().getJDBCType());
@@ -59,7 +59,7 @@ public class TypeConverterTests {
 		String decimal = "891275612501236589.019";
 		int scale = new BigDecimal(decimal).scale();
 
-		Col col = getMockedCol(decimal, Types.DECIMAL);
+		Col col = getMockedCol(null, decimal, Types.DECIMAL);
 		
 		AvroType avroType = TypeConverter.getAvroType(col.getDataType().getJDBCType());
 		byte[] value = (byte[]) avroType.getValue(col.getValue());
@@ -76,7 +76,7 @@ public class TypeConverterTests {
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd:HH:mm:ss");
 		cal.setTime(sdf.parse(date));
 		
-		Col col = getMockedCol(date + "." + millis, Types.TIMESTAMP);
+		Col col = getMockedCol(null, date + "." + millis, Types.TIMESTAMP);
 		
 		AvroType avroType = TypeConverter.getAvroType(col.getDataType().getJDBCType());
 		long value = (long) avroType.getValue(col.getValue());
@@ -90,7 +90,7 @@ public class TypeConverterTests {
 		Assert.assertEquals(Long.parseLong(millis), value % (1000 * 1000 * 1000));
 	}
 
-	private Col getMockedCol(String return_value, int jdbcType) {
+	public static Col getMockedCol(String columnName, String return_value, int jdbcType) {
 
 		DsColumn dsColumn = mock(DsColumn.class);
 		doReturn(return_value).when(dsColumn).getValue();
@@ -98,6 +98,7 @@ public class TypeConverterTests {
 		Col col = mock(Col.class);
 		doReturn(return_value).when(col).getValue();
 		doReturn(dsColumn).when(col).getAfter();
+		doReturn(columnName).when(col).getName();
 		DsType dsType = mock(DsType.class);
 		doReturn(jdbcType).when(dsType).getJDBCType();
 		doReturn(dsType).when(col).getDataType();

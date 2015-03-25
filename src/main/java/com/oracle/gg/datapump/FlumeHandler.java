@@ -115,7 +115,7 @@ public class FlumeHandler extends AbstractHandler {
 		return builder.build();
 	}
 
-	protected void informInit(DsConfiguration conf, DsMetaData metaData) {
+	public void informInit(DsConfiguration conf, DsMetaData metaData) {
 		super.init(conf, metaData);
 	}
 	
@@ -141,7 +141,9 @@ public class FlumeHandler extends AbstractHandler {
 		}catch(Exception e){
 			retVal = Status.ABEND;
 			
-			LOG.error("there was an error during operation added: " + e.getMessage());
+			LOG.error("there was an error during operation added.", e);
+			
+			Throwables.propagate(e);
 		}
 		
 		return retVal;
@@ -181,8 +183,8 @@ public class FlumeHandler extends AbstractHandler {
 		Encoder encoder = EncoderFactory.get().binaryEncoder(out, null);
 		
 		ReflectDatumWriter<GenericRecord> writer = new ReflectDatumWriter<GenericRecord>(schema);
-		
 		writer.write(record, encoder);
+		
 		encoder.flush();
 		
 		return out.toByteArray();
@@ -193,18 +195,18 @@ public class FlumeHandler extends AbstractHandler {
 		Status retVal = informTransactionCommit(event, transaction);
 		
 		try{
-			if(!isOperationMode()){
+//			if(!isOperationMode()){
 				Tx ops = getOps(transaction);
 				List<Event> events = Lists.newLinkedList();
 				for (Op op : ops)
 					events.add(getEventFromOp(op));
 				
 				flumeClient.send(events);
-			}
+//			}
 		}catch(Exception e){
 			retVal = Status.ABEND;
 			
-			LOG.error("there was an error during commit: " + e.getMessage());
+			LOG.error("there was an error during commit", e);
 		}
 			
 		return retVal;
@@ -273,6 +275,10 @@ public class FlumeHandler extends AbstractHandler {
 
 	public FlumeClient getFlumeClient() {
 		return new FlumeClient();
+	}
+
+	public void setFlumeClient(FlumeClient flumeClient) {
+		this.flumeClient = flumeClient;
 	}
 	
 }
