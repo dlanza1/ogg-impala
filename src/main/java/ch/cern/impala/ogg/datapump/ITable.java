@@ -1,5 +1,7 @@
 package ch.cern.impala.ogg.datapump;
 
+import java.sql.SQLException;
+
 public class ITable {
 
 	private ImpalaClient impalaClient;
@@ -24,9 +26,8 @@ public class ITable {
 		
 	}
 
-	public void drop() {
-		// TODO Auto-generated method stub
-		
+	public void drop() throws SQLException {
+		impalaClient.exect("DROP TABLE " + metadata.getSchemaName() + "." + metadata.getTableName());
 	}
 
 	@Override

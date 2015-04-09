@@ -57,10 +57,9 @@ public class Batch {
 			try{
 				hdfs.copyFromLocalFile(path, stagingHDFSDirectory);
 				
-				LOG.debug("the local file " + path + " has been moved to " + stagingHDFSDirectory + " (HDFS");
+				LOG.debug("the local file " + path + " has been moved to " + stagingHDFSDirectory + " (HDFS)");
 			}catch(Exception e){
-				LOG.error("the name of the file " + path 
-						+ " is in the control file but the file could not be read");
+				LOG.error("the local file " + path + " could not be copied to " + stagingHDFSDirectory + " (HDFS)");
 				
 				throw e;
 			}
@@ -70,18 +69,20 @@ public class Batch {
 		for (String file : files) {
 			Path path = new Path(sourceLocalDirectory + "/" + file);
 			
-			boolean success = local.delete(path, true);
-			
-			if(success)
+			if(local.delete(path, true)){
 				LOG.debug(file + " has been deleted");
-			else
-				throw new IllegalStateException(file + " could not be deleted");
+			}else{
+				throw new IllegalStateException("REQUIRED MANUAL FIX: the file " + file 
+						+ " could not be deleted (SOLUTION: the files contained in " + controlFile 
+						+ " must be deleted and this control file should contain: \"" 
+						+ ControlFile.FILES_LOADED_INTO_HDFS_LABEL + "\")");
+			}
 		}
-		
-		LOG.info(files.size() + " files have been moved to " + stagingHDFSDirectory + " (HDFS)");
 		
 		//Write label in control file to avoid re-load
 		controlFile.markAsFilesLoadedIntoHDFS();
+		
+		LOG.info(files.size() + " files have been moved to " + stagingHDFSDirectory + " (HDFS)");
 		
 		if(controlFile.isMarkedAsFilesLoadedIntoHDFS()){
 			OTableMetadata metadata = new OracleClient().getMetadata("table");
@@ -102,15 +103,15 @@ public class Batch {
 			//Remove staging data
 			try{
 				externalTable.drop();
-			}catch(Exception e){
+			}catch(SQLException e){
 				LOG.error("the Impala table " + externalTable + " which contains "
-						+ "the staging data could not be deleted");
+						+ "the staging data could not be deleted", e);
 			}
 			try{
 				hdfs.delete(tableDir, true);
 			}catch(Exception e){
 				LOG.error("the HDFS directory " + tableDir + " which contains "
-						+ "the data of the staging table could not be deleted");
+						+ "the data of the staging table could not be deleted", e);
 			}
 		}
 		

@@ -22,7 +22,7 @@ public class ControlFile extends File{
 	 */
 	private static final String EXT_CONTROL_FILE_TO_PROCESS = ".to_process";
 	
-	private static final CharSequence FILES_LOADED_INTO_HDFS_LABEL = "FILES LOADED INTO HDFS";
+	public static final CharSequence FILES_LOADED_INTO_HDFS_LABEL = "FILES LOADED INTO HDFS";
 
 	public static final CharSequence DATA_INSERTED_INTO_FINAL_LABEL = "DATA INSERTED INTO FINAL TABLE";
 	
