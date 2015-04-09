@@ -54,6 +54,28 @@
 			<artifactId>hadoop-client</artifactId>
 			<version>2.5.0-cdh5.3.1</version>
 		</dependency>
+		
+		<dependency>
+			<groupId>org.apache.hive</groupId>
+			<artifactId>hive-jdbc</artifactId>
+			<version>0.13.1-cdh5.3.2</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.hive</groupId>
+			<artifactId>hive-metastore</artifactId>
+			<version>0.13.1-cdh5.3.2</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.hive</groupId>
+			<artifactId>hive-service</artifactId>
+			<version>0.13.1-cdh5.3.2</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.hive</groupId>
+			<artifactId>hive-common</artifactId>
+			<version>0.13.1-cdh5.3.2</version>
+		</dependency>
+		
 		<dependency>
 			<groupId>org.kitesdk</groupId>
 			<artifactId>kite-data-core</artifactId>
@@ -93,8 +115,8 @@
 				<artifactId>maven-compiler-plugin</artifactId>
 				<version>3.1</version>
 				<configuration>
-					<source>1.7</source>
-					<target>1.7</target>
+					<source>1.6</source>
+					<target>1.6</target>
 				</configuration>
 			</plugin>
 		</plugins>

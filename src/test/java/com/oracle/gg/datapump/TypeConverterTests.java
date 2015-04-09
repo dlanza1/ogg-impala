@@ -79,7 +79,7 @@ public class TypeConverterTests {
 		Col col = getMockedCol(null, date + "." + millis, Types.TIMESTAMP);
 		
 		AvroType avroType = TypeConverter.getAvroType(col.getDataType().getJDBCType());
-		long value = (long) avroType.getValue(col.getValue());
+		long value = (Long) avroType.getValue(col.getValue());
 		
 		//Check seconds
 		Calendar cal_avro = Calendar.getInstance();
