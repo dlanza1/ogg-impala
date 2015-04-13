@@ -19,16 +19,16 @@ public class Batch {
 
 	private ControlFile controlFile;
 	
-	ImpalaClient impC;
+	private ITable targetTable; 
 
-	public Batch(ControlFile controlFile, PropertiesE prop) 
+	public Batch(ControlFile controlFile, ITable targetTable, PropertiesE prop) 
 			throws IOException, ClassNotFoundException, SQLException {
 		
 		this.controlFile = controlFile;
 		this.stagingHDFSDirectory = prop.getStagingHDFSDirectory();
 		this.sourceLocalDirectory = prop.getSourceLocalDirectory();
 		
-		impC = new ImpalaClient(prop.getImpalaHost(), prop.getImpalaPort());
+		this.targetTable = targetTable;
 	}
 
 	public void start() throws Exception {
@@ -85,17 +85,12 @@ public class Batch {
 		LOG.info(files.size() + " files have been moved to " + stagingHDFSDirectory + " (HDFS)");
 		
 		if(controlFile.isMarkedAsFilesLoadedIntoHDFS()){
-			OTableMetadata metadata = new OracleClient().getMetadata("table");
-			
 			//Create Impala staging table
 			Path tableDir = hdfs.resolvePath(stagingHDFSDirectory);
-			ITable externalTable = impC.createStagingTable(tableDir, metadata);
+			ITable externalTable = targetTable.createStagingTable(tableDir); 
 			
-			//Get final table (the table is created if it does not exist)
-			ITable finalTable = impC.createTable(metadata);
-			
-			//Insert staging data into final table
-			externalTable.insertoInto(finalTable);
+			//Insert staging data into target table
+			externalTable.insertoInto(targetTable);
 			
 			//Write label in control file to avoid re-insert
 			controlFile.markAsDataInsertedIntoFinalTable();

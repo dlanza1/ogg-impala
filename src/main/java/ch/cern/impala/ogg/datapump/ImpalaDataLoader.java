@@ -25,6 +25,12 @@ public class ImpalaDataLoader {
 		ControlFile sourceControlFile = prop.getSourceContorlFile();
 		LOG.info("reading control data from " + sourceControlFile);
 		
+		ImpalaClient impC = new ImpalaClient(prop.getImpalaHost(), prop.getImpalaPort());
+		
+		//Create target table if it does not exist
+		ColumnMetadata metadata = new OracleClient().getMetadata("table");
+		ITable targetTable = impC.createTable("lhclog", "data_numeric_ogg", metadata);
+		
 		//Period of time for checking new data
 		long ms_between_batches = prop.getMsBetweenBatches();
 		
@@ -36,7 +42,7 @@ public class ImpalaDataLoader {
 			ControlFile controlFile = sourceControlFile.getControlFileToProcess();
 			
 			if(controlFile != null){
-				new Batch(controlFile, prop).start();
+				new Batch(controlFile, targetTable, prop).start();
 			}else{
 				LOG.info("there is no data to process");
 			}

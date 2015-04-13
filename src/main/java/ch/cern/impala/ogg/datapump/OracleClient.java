@@ -7,8 +7,8 @@ public class OracleClient {
 		
 	}
 	
-	public OTableMetadata getMetadata(String table) {
-		return new OTableMetadata();
+	public ColumnMetadata getMetadata(String table) {
+		return new ColumnMetadata();
 	}
 
 }
