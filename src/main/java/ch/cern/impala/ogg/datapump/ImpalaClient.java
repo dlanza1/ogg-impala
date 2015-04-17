@@ -11,7 +11,7 @@ import org.slf4j.LoggerFactory;
 
 public class ImpalaClient {
 	
-	final private static Logger LOG = LoggerFactory.getLogger(Batch.class);
+	final private static Logger LOG = LoggerFactory.getLogger(ImpalaClient.class);
 
 	private static final String JDBC_DRIVER_NAME = "org.apache.hive.jdbc.HiveDriver";
 
@@ -71,7 +71,10 @@ public class ImpalaClient {
 								+ " " + sourceTableColumnsMetadata.asSQL()
 								+ " STORED AS textfile"
 								+ " LOCATION '" + Path.getPathWithoutSchemeAndAuthority(tableDir) + "'";
+		exect(smnt);
 		
+		smnt = "ALTER TABLE " + schema + "." + name
+					+ " SET SERDEPROPERTIES ('field.delim'=';')";
 		exect(smnt);
 		
 		LOG.info("created external table: " + schema + "." + name);
