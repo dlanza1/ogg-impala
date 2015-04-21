@@ -14,7 +14,6 @@ public class Batch {
 	
 	final private static Logger LOG = LoggerFactory.getLogger(Batch.class);
 
-	private String sourceLocalDirectory;
 	private Path stagingHDFSDirectory;
 
 	private ControlFile controlFile;
@@ -26,7 +25,6 @@ public class Batch {
 		
 		this.controlFile = controlFile;
 		this.stagingHDFSDirectory = prop.getStagingHDFSDirectory();
-		this.sourceLocalDirectory = prop.getSourceLocalDirectory();
 		
 		this.targetTable = targetTable;
 	}
