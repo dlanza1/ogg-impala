@@ -26,11 +26,11 @@ public class ControlFile extends File{
 
 	public static final CharSequence DATA_INSERTED_INTO_FINAL_LABEL = "DATA INSERTED INTO FINAL TABLE";
 	
-	public ControlFile(String pathname) {
+	public ControlFile(String pathname) throws IOException {
 		super(pathname);
 	}
 
-	public ControlFile getControlFileToProcess() {
+	public ControlFile getControlFileToProcess() throws IOException {
 		ControlFile control_file_to_process = new ControlFile(
 				getAbsolutePath().concat(EXT_CONTROL_FILE_TO_PROCESS));
 		
@@ -46,9 +46,9 @@ public class ControlFile extends File{
 	
 		//Rename this control file
 		if(!renameTo(control_file_to_process)){
-			LOG.warn("the source control file " + this + " could not be renamed");
+			LOG.error("the source control file " + this + " could not be renamed");
 	
-			return null;
+			throw new IOException("the source control file " + this + " could not be renamed");
 		}
 		
 		return control_file_to_process;
@@ -94,8 +94,8 @@ public class ControlFile extends File{
 			fw.append(DATA_INSERTED_INTO_FINAL_LABEL);
 			fw.close();
 		} catch (IOException e) {
-			LOG.error("FATAL: the control file could not be mark as data inserted into final table"
-					+ " (if the process is restarted, some data could be re-inserted into final table)", e);
+			LOG.error("FATAL: the control file could not be mark as data inserted into final table. "
+					+ " IF YOU RUN THE LOADER, THE STAGING DATA WILL BE RE-INSERTED.", e);
 			
 			throw e;
 		}
@@ -105,6 +105,18 @@ public class ControlFile extends File{
 		BufferedReader br = new BufferedReader(new FileReader(this));
 		
 		boolean out = br.readLine().equals(FILES_LOADED_INTO_HDFS_LABEL);
+		
+		try {
+			br.close();
+		} catch (IOException e) {}
+		
+		return out;
+	}
+	
+	public boolean isMarkedAsDataInsertedIntoFinalTable() throws IOException {
+		BufferedReader br = new BufferedReader(new FileReader(this));
+		
+		boolean out = br.readLine().equals(DATA_INSERTED_INTO_FINAL_LABEL);
 		
 		try {
 			br.close();

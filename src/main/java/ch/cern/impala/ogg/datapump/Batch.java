@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.sql.SQLException;
 import java.util.List;
 
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.slf4j.Logger;
@@ -18,107 +17,141 @@ public class Batch {
 
 	private ControlFile controlFile;
 	
-	private ITable targetTable; 
+	private ITable targetTable;
 
-	public Batch(ControlFile controlFile, ITable targetTable, PropertiesE prop) 
+	private List<String> datafiles;
+
+	private FileSystem local;
+
+	private FileSystem hdfs;
+
+	private ITable externalTable; 
+
+	public Batch(FileSystem local, FileSystem hdfs, ControlFile controlFile, ITable targetTable, PropertiesE prop) 
 			throws IOException, ClassNotFoundException, SQLException {
+		this.local = local;
+		this.hdfs = hdfs;
 		
 		this.controlFile = controlFile;
+		
 		this.stagingHDFSDirectory = prop.getStagingHDFSDirectory();
+		
+		this.datafiles = this.controlFile.getDataFileNames();
 		
 		this.targetTable = targetTable;
 	}
 
 	public void start() throws Exception {
 		
-		Configuration conf = new Configuration();
-		conf.set("fs.hdfs.impl", org.apache.hadoop.hdfs.DistributedFileSystem.class.getName());
-		FileSystem hdfs = FileSystem.get(conf);
+		if(!controlFile.isMarkedAsFilesLoadedIntoHDFS()
+				&& !controlFile.isMarkedAsDataInsertedIntoFinalTable()){
+			
+			stagingHDFSDirectory = getEmptyDirectory(hdfs, stagingHDFSDirectory);
 		
-		conf.set("fs.file.impl", org.apache.hadoop.fs.LocalFileSystem.class.getName());
-		FileSystem local = FileSystem.getLocal(conf);
-		
-		//Create empty HDFS directory
-		if(hdfs.exists(stagingHDFSDirectory)){
-			if(!hdfs.delete(stagingHDFSDirectory, true)){
-				IllegalStateException e = new IllegalStateException("target directory could not be deleted");
-				LOG.error(e.getMessage(), e);
-				throw e;
-			}
-		}
-		if(!hdfs.mkdirs(stagingHDFSDirectory)){
-			IllegalStateException e = new IllegalStateException("target directory could not be created");
-			LOG.error(e.getMessage(), e);
-			throw e;
+			moveDataFilesToHDFS(local, hdfs, datafiles);
 		}
 		
-		stagingHDFSDirectory = hdfs.resolvePath(stagingHDFSDirectory);
+		if(controlFile.isMarkedAsFilesLoadedIntoHDFS()
+				&& !controlFile.isMarkedAsDataInsertedIntoFinalTable()){
+			
+			externalTable = targetTable.createStagingTable(stagingHDFSDirectory); 
+			
+			externalTable.insertoInto(targetTable);
+			
+			controlFile.markAsDataInsertedIntoFinalTable();
+		}
+	}
+
+	private void moveDataFilesToHDFS(FileSystem local, FileSystem hdfs, List<String> files) throws Exception {
 		
-		//Move files to HDFS
-		List<String> files = this.controlFile.getDataFileNames();
+		//Copy all files
+		long totalSize = 0;
 		for (String file : files) {
 			Path path = new Path(file);
 			
+			long length = 0;
+			try{
+				length = local.getFileStatus(path).getLen();
+			}catch(IOException e){}
+			
 			try{
 				hdfs.copyFromLocalFile(path, stagingHDFSDirectory);
+
+				totalSize += length;
 				
-				LOG.debug("the local file " + path + " has been moved to " + stagingHDFSDirectory);
+				LOG.debug("the local file " + path + " (" + length 
+						+ " bytes) has been moved to " + stagingHDFSDirectory);
 			}catch(Exception e){
-				LOG.error("the local file " + path + " could not be copied to " + stagingHDFSDirectory);
+				LOG.error("the local file " + path + " could not be copied to HDFS");
 				
 				throw e;
 			}
 		}
 		
-		//Delete all copied files
+		//Delete all copied data files
 		for (String file : files) {
 			Path path = new Path(file);
 			
 			if(local.delete(path, true)){
 				LOG.debug(file + " has been deleted");
 			}else{
-				throw new IllegalStateException("REQUIRED MANUAL FIX: the file " + file 
-						+ " could not be deleted (SOLUTION: the files contained in " + controlFile 
-						+ " must be deleted and this control file should contain: \"" 
-						+ ControlFile.FILES_LOADED_INTO_HDFS_LABEL + "\")");
+				throw new IllegalStateException("the data file " + file + " could not be deleted");
 			}
 		}
 		
-		//Write label in control file to avoid re-load
 		controlFile.markAsFilesLoadedIntoHDFS();
 		
-		LOG.info(files.size() + " files have been moved to " + stagingHDFSDirectory);
+		LOG.info(files.size() + " files " + "("+ totalSize + " bytes) have been moved to HDFS");
+	}
+
+	private Path getEmptyDirectory(FileSystem hdfs, Path directory) throws IOException {
 		
-		if(controlFile.isMarkedAsFilesLoadedIntoHDFS()){
-			//Create Impala staging table
-			ITable externalTable = targetTable.createStagingTable(stagingHDFSDirectory); 
-			
-			//Insert staging data into target table
-			externalTable.insertoInto(targetTable);
-			
-			//Write label in control file to avoid re-insert
-			controlFile.markAsDataInsertedIntoFinalTable();
-			
-			//Remove staging data
-			try{
-				externalTable.drop();
-			}catch(SQLException e){
-				LOG.error("the Impala table " + externalTable + " which contains "
-						+ "the staging data could not be deleted", e);
+		if(hdfs.exists(directory)){
+			if(!hdfs.delete(directory, true)){
+				IllegalStateException e = new IllegalStateException("target directory could not be deleted");
+				LOG.error(e.getMessage(), e);
+				throw e;
 			}
-			try{
-				hdfs.delete(stagingHDFSDirectory, true);
-			}catch(Exception e){
-				LOG.error("the HDFS directory " + stagingHDFSDirectory + " which contains "
-						+ "the data of the staging table could not be deleted", e);
-			}
+			
+			LOG.warn("the directory " + directory + " had to be deleted in HDFS");
 		}
 		
+		if(!hdfs.mkdirs(directory)){
+			IllegalStateException e = new IllegalStateException("target directory could not be created");
+			LOG.error(e.getMessage(), e);
+			throw e;
+		}
+		
+		return hdfs.resolvePath(directory);
+	}
+
+	public void clean() throws Exception {
+
+		//Delete control file
 		try{
-			//Delete control file
 			controlFile.delete();
 		}catch(Exception e){
 			LOG.error("the control file " + controlFile + " could not be deleted", e);
+			
+			throw e;
+		}
+		
+		//Remove staging data in Impala and HDFS
+		try{
+			externalTable.drop();
+		}catch(SQLException e){
+			LOG.error("the Impala table " + externalTable + " which contains "
+					+ "the staging data could not be deleted", e);
+			
+			throw e;
+		}
+		try{
+			hdfs.delete(stagingHDFSDirectory, true);
+		}catch(Exception e){
+			LOG.error("the HDFS directory " + stagingHDFSDirectory + " which contains "
+					+ "the data of the staging table could not be deleted", e);
+			
+			throw e;
 		}
 	}
 

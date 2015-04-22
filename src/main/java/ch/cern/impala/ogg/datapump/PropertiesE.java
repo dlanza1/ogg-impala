@@ -51,7 +51,7 @@ public class PropertiesE extends Properties {
 
 	}
 
-	public ControlFile getSourceContorlFile() throws IllegalStateException {
+	public ControlFile getSourceContorlFile() throws IllegalStateException, IOException {
 		String oggDataFolder_prop = getProperty(OGG_DATA_FOLDER);
 		String sourceControlFile_prop = getProperty(OGG_CONTROL_FILE_NAME);
 		if(oggDataFolder_prop == null || sourceControlFile_prop == null){

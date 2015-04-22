@@ -1,5 +1,7 @@
 package ch.cern.impala.ogg.datapump;
 
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,6 +36,13 @@ public class ImpalaDataLoader {
 		//Period of time for checking new data
 		long ms_between_batches = prop.getMsBetweenBatches();
 		
+		//Get file systems
+		Configuration conf = new Configuration();
+		conf.set("fs.hdfs.impl", org.apache.hadoop.hdfs.DistributedFileSystem.class.getName());
+		FileSystem hdfs = FileSystem.get(conf);
+		conf.set("fs.file.impl", org.apache.hadoop.fs.LocalFileSystem.class.getName());
+		FileSystem local = FileSystem.getLocal(conf);
+		
 		//Always checking periodically for new data
 		while(true){
 			long startTime = System.currentTimeMillis();
@@ -42,7 +51,11 @@ public class ImpalaDataLoader {
 			ControlFile controlFile = sourceControlFile.getControlFileToProcess();
 			
 			if(controlFile != null){
-				new Batch(controlFile, targetTable, prop).start();
+				LOG.info("there is new data to process");
+				
+				Batch batch = new Batch(local, hdfs, controlFile, targetTable, prop);
+				batch.start();
+				batch.clean();
 			}else{
 				LOG.info("there is no data to process");
 			}
@@ -62,7 +75,7 @@ public class ImpalaDataLoader {
 				return;
 			}
 			
-			timeDiff = System.currentTimeMillis()- startTime;
+			timeDiff = System.currentTimeMillis() - startTime;
 		}
 	}
 

@@ -73,10 +73,6 @@ public class ImpalaClient {
 								+ " LOCATION '" + Path.getPathWithoutSchemeAndAuthority(tableDir) + "'";
 		exect(smnt);
 		
-		smnt = "ALTER TABLE " + schema + "." + name
-					+ " SET SERDEPROPERTIES ('field.delim'=';')";
-		exect(smnt);
-		
 		LOG.info("created external table: " + schema + "." + name);
 		LOG.debug(smnt);
 								
