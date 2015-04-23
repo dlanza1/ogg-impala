@@ -9,6 +9,9 @@ import org.apache.hadoop.fs.Path;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import ch.cern.impala.ogg.datapump.impala.ITable;
+import ch.cern.impala.ogg.datapump.oracle.ControlFile;
+
 public class Batch {
 	
 	final private static Logger LOG = LoggerFactory.getLogger(Batch.class);
@@ -27,32 +30,31 @@ public class Batch {
 
 	private ITable externalTable; 
 
-	public Batch(FileSystem local, FileSystem hdfs, ControlFile controlFile, ITable targetTable, PropertiesE prop) 
+	public Batch(FileSystem local, FileSystem hdfs, ControlFile controlFile, ITable targetTable, Path stagingHDFSDirectory) 
 			throws IOException, ClassNotFoundException, SQLException {
 		this.local = local;
 		this.hdfs = hdfs;
 		
 		this.controlFile = controlFile;
 		
-		this.stagingHDFSDirectory = prop.getStagingHDFSDirectory();
-		
-		this.datafiles = this.controlFile.getDataFileNames();
+		this.stagingHDFSDirectory = stagingHDFSDirectory;
 		
 		this.targetTable = targetTable;
 	}
 
 	public void start() throws Exception {
 		
-		if(!controlFile.isMarkedAsFilesLoadedIntoHDFS()
-				&& !controlFile.isMarkedAsDataInsertedIntoFinalTable()){
+		if(controlFile.canDataBeLoadedIntoHDFS()){
+			datafiles = controlFile.getDataFileNames();
 			
-			stagingHDFSDirectory = getEmptyDirectory(hdfs, stagingHDFSDirectory);
+			stagingHDFSDirectory = getStagingDirectory(hdfs, stagingHDFSDirectory);
 		
 			moveDataFilesToHDFS(local, hdfs, datafiles);
 		}
 		
-		if(controlFile.isMarkedAsFilesLoadedIntoHDFS()
-				&& !controlFile.isMarkedAsDataInsertedIntoFinalTable()){
+		if(controlFile.canDataBeInsertedIntoFinalTable()){
+			if(!stagingHDFSDirectory.isAbsolute())
+				stagingHDFSDirectory = hdfs.resolvePath(stagingHDFSDirectory);
 			
 			externalTable = targetTable.createStagingTable(stagingHDFSDirectory); 
 			
@@ -99,12 +101,12 @@ public class Batch {
 			}
 		}
 		
-		controlFile.markAsFilesLoadedIntoHDFS();
+		controlFile.filesLoadedIntoHDFS();
 		
 		LOG.info(files.size() + " files " + "("+ totalSize + " bytes) have been moved to HDFS");
 	}
 
-	private Path getEmptyDirectory(FileSystem hdfs, Path directory) throws IOException {
+	private Path getStagingDirectory(FileSystem hdfs, Path directory) throws IOException {
 		
 		if(hdfs.exists(directory)){
 			if(!hdfs.delete(directory, true)){

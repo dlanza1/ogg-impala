@@ -1,4 +1,4 @@
-package ch.cern.impala.ogg.datapump;
+package ch.cern.impala.ogg.datapump.impala;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -39,7 +39,7 @@ public class ImpalaClient {
 		stmt.close();
 	}
 
-	public ITable createTable(String schema, String name, ColumnMetadata columnsMetadata) throws SQLException {
+	public ITable createTable(String schema, String name, ColumnsMetadata columnsMetadata) throws SQLException {
 		
 		String smnt = "CREATE TABLE " + schema + "." + name
 								+ " " + columnsMetadata.asSQL()
@@ -61,8 +61,7 @@ public class ImpalaClient {
 		return new ITable(this, schema, name, columnsMetadata);	
 	}
 	
-	public ITable createExternalTable(String schema, String name, Path tableDir, ColumnMetadata sourceTableColumnsMetadata) throws SQLException {
-		
+	public ITable createExternalTable(String schema, String name, Path tableDir, ColumnsMetadata sourceTableColumnsMetadata) throws SQLException {
 		try{
 			exect("DROP TABLE " + schema + "." + name);
 		}catch(Exception e){}

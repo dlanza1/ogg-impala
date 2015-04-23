@@ -1,4 +1,4 @@
-package ch.cern.impala.ogg.datapump;
+package ch.cern.impala.ogg.datapump.utils;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -6,6 +6,8 @@ import java.util.Properties;
 
 import org.apache.hadoop.fs.Path;
 import org.apache.log4j.Logger;
+
+import ch.cern.impala.ogg.datapump.oracle.ControlFile;
 
 public class PropertiesE extends Properties {
 	private static final long serialVersionUID = 3733307414558688437L;

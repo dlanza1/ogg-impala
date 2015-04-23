@@ -33,13 +33,13 @@ public class WriteSampleFiles {
 				System.out.println("Created file: " + file.getName() + " ("
 						+ ROWS_PER_SECOND + " rows, "
 						+ (System.currentTimeMillis() - startTime) + " ms)");
-			} catch (FileException e) {
+			} catch (IOException e) {
 				e.printStackTrace();
 			}
 		}
 	}
 
-	private static File writeDataFile() throws FileException {
+	private static File writeDataFile() throws IOException {
 		long startTime = System.currentTimeMillis();
 		Random r = new Random();
 		
@@ -75,8 +75,6 @@ public class WriteSampleFiles {
 			temporalFile.delete();
 			
 			return finalFile;
-		} catch (IOException e) {
-			throw new FileException(temporalFile);
 		} finally {
             try {
                 writer.close();
@@ -84,14 +82,12 @@ public class WriteSampleFiles {
         }
 	}
 	
-	private static void writeControlFile(File file) throws FileException {
+	private static void writeControlFile(File file) throws IOException {
 		BufferedWriter writer = null;
 		try {
 			writer = new BufferedWriter(new FileWriter(controlFile, true));
         	
 			writer.write(file.getName() + ",");
-		} catch (IOException e) {
-			throw new FileException(controlFile);
 		} finally {
             try {
                 writer.close();

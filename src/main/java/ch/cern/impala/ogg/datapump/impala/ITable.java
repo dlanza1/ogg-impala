@@ -1,4 +1,4 @@
-package ch.cern.impala.ogg.datapump;
+package ch.cern.impala.ogg.datapump.impala;
 
 import java.sql.SQLException;
 
@@ -16,9 +16,9 @@ public class ITable {
 	
 	private String name;
 	
-	private ColumnMetadata columnMetadata;
+	private ColumnsMetadata columnMetadata;
 
-	public ITable(ImpalaClient impalaClient, String schema, String name, ColumnMetadata columnMetadata) {
+	public ITable(ImpalaClient impalaClient, String schema, String name, ColumnsMetadata columnMetadata) {
 		this.impalaClient = impalaClient;
 		this.schema = schema;
 		this.name = name;
@@ -44,7 +44,7 @@ public class ITable {
 		return name;
 	}
 
-	public ColumnMetadata getColumnMetadata() {
+	public ColumnsMetadata getColumnMetadata() {
 		return columnMetadata;
 	}
 	
