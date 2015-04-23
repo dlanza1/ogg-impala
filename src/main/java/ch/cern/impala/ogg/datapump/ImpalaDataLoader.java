@@ -76,6 +76,11 @@ public class ImpalaDataLoader {
 	private static void waitForNextBatch(long startTime, long ms_between_batches) {
 		long timeDiff = System.currentTimeMillis() - startTime;
 		
+		long waitTime = Math.min(ms_between_batches - timeDiff,
+								 MAX_MS_BETWEEN_BATCHES - timeDiff);
+		
+		LOG.info("waiting " + (waitTime / 1000) + " seconds...");
+		
 		while(timeDiff < ms_between_batches){
 			if(timeDiff > MAX_MS_BETWEEN_BATCHES){
 				LOG.warn("the maximun time between batches (" 
