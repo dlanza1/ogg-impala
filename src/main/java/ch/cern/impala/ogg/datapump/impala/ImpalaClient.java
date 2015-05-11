@@ -9,6 +9,8 @@ import org.apache.hadoop.fs.Path;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import ch.cern.impala.ogg.datapump.oracle.TableDefinition;
+
 public class ImpalaClient {
 	
 	final private static Logger LOG = LoggerFactory.getLogger(ImpalaClient.class);
@@ -39,10 +41,13 @@ public class ImpalaClient {
 		stmt.close();
 	}
 
-	public ITable createTable(String schema, String name, ColumnsMetadata columnsMetadata) throws SQLException {
+	public ITable createTable(TableDefinition tableDef) throws SQLException {
+		
+		String schema = tableDef.getSchemaName();
+		String name = tableDef.getTableName();
 		
 		String smnt = "CREATE TABLE " + schema + "." + name
-								+ " " + columnsMetadata.asSQL()
+								+ " (" + tableDef.getColumnsAsSQL() + ")"
 								+ " STORED AS parquet";
 		
 		try{
@@ -58,16 +63,16 @@ public class ImpalaClient {
 			}
 		}
 								
-		return new ITable(this, schema, name, columnsMetadata);	
+		return new ITable(this, tableDef);	
 	}
 	
-	public ITable createExternalTable(String schema, String name, Path tableDir, ColumnsMetadata sourceTableColumnsMetadata) throws SQLException {
+	public ITable createExternalTable(String schema, String name, Path tableDir, TableDefinition tableDef) throws SQLException {
 		try{
 			exect("DROP TABLE " + schema + "." + name);
 		}catch(Exception e){}
 		
 		String smnt = "CREATE EXTERNAL TABLE " + schema + "." + name
-								+ " " + sourceTableColumnsMetadata.asSQL()
+								+ " (" + tableDef.getColumnsAsSQLForExternalTable() + ")"
 								+ " STORED AS textfile"
 								+ " LOCATION '" + Path.getPathWithoutSchemeAndAuthority(tableDir) + "'";
 		exect(smnt);
@@ -75,13 +80,12 @@ public class ImpalaClient {
 		LOG.info("created external table: " + schema + "." + name);
 		LOG.debug(smnt);
 								
-		return new ITable(this, schema, name, sourceTableColumnsMetadata);
+		return new ITable(this, tableDef);
 	}
 
 	public void close(){
 		try {
 			con.close();
-		} catch (Exception e) {
-		}
+		} catch (Exception e) {}
 	}
 }

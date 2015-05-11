@@ -6,60 +6,58 @@ import org.apache.hadoop.fs.Path;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import ch.cern.impala.ogg.datapump.oracle.TableDefinition;
+
 public class ITable {
 	
 	final private static Logger LOG = LoggerFactory.getLogger(ITable.class);
 
 	private ImpalaClient impalaClient;
-	
-	private String schema;
-	
-	private String name;
-	
-	private ColumnsMetadata columnMetadata;
 
-	public ITable(ImpalaClient impalaClient, String schema, String name, ColumnsMetadata columnMetadata) {
+	private TableDefinition tableDef;
+
+	public ITable(ImpalaClient impalaClient,  TableDefinition tableDef) {
 		this.impalaClient = impalaClient;
-		this.schema = schema;
-		this.name = name;
-		this.columnMetadata = columnMetadata;
+
+		this.tableDef = tableDef;
 	}
 
 	public void insertoInto(ITable targetTable) throws SQLException {
 		
 		String stmn = "INSERT INTO " + targetTable.getSchema() + "." + targetTable.getName()
-							+ " SELECT * FROM " + this.schema + "." + this.name;
+							+ " SELECT " + targetTable.getTableDefinition().getColumnsWithCastingAsSQL()
+							+ " FROM " + getSchema() + "." + getName();
 		
 		impalaClient.exect(stmn);
 		
 		LOG.info("inserted data into " + targetTable.getSchema() + "." + targetTable.getName() 
-					+ " from " + this.schema + "." + this.name);
+					+ " from " + getSchema() + "." + getName());
 	}
 
 	private String getSchema() {
-		return schema;
+		return this.tableDef.getSchemaName();
 	}
 
 	public String getName() {
-		return name;
+		return this.tableDef.getTableName();
 	}
 
-	public ColumnsMetadata getColumnMetadata() {
-		return columnMetadata;
+	public TableDefinition getTableDefinition() {
+		return tableDef;
 	}
 	
 	public void drop() throws SQLException {
-		impalaClient.exect("DROP TABLE " + schema + "." + name);
+		impalaClient.exect("DROP TABLE " + getSchema() + "." + getName());
 		
-		LOG.info("deleted table " + schema + "." + name);
+		LOG.info("deleted table " + getSchema() + "." + getName());
 	}
 
 	@Override
 	public String toString() {
-		return schema + "." + name;
+		return getSchema() + "." + getName();
 	}
 
 	public ITable createStagingTable(Path tableDir) throws SQLException {
-		return impalaClient.createExternalTable(schema, name.concat("_staging"), tableDir, columnMetadata);
+		return impalaClient.createExternalTable(getSchema(), getName().concat("_staging"), tableDir, tableDef);
 	}
 }
