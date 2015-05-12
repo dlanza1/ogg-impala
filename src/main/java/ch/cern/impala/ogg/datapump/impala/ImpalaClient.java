@@ -9,6 +9,7 @@ import org.apache.hadoop.fs.Path;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import ch.cern.impala.ogg.datapump.oracle.ColumnDefinition;
 import ch.cern.impala.ogg.datapump.oracle.TableDefinition;
 
 public class ImpalaClient {
@@ -67,20 +68,29 @@ public class ImpalaClient {
 	}
 	
 	public ITable createExternalTable(String schema, String name, Path tableDir, TableDefinition tableDef) throws SQLException {
+		
+		//Create new table definition with STRING data types and new names
+		TableDefinition newTabDef = new TableDefinition(schema, name);
+		for(ColumnDefinition col : tableDef.getColumnsDefinitions()){
+			ColumnDefinition newCol = col.clone();
+			newCol.setType("STRING");
+			newTabDef.addColumnDefinition(newCol);
+		}
+		
 		try{
 			exect("DROP TABLE " + schema + "." + name);
 		}catch(Exception e){}
 		
 		String smnt = "CREATE EXTERNAL TABLE " + schema + "." + name
-								+ " (" + tableDef.getColumnsAsSQLForExternalTable() + ")"
+								+ " (" + newTabDef.getColumnsAsSQL() + ")"
 								+ " STORED AS textfile"
 								+ " LOCATION '" + Path.getPathWithoutSchemeAndAuthority(tableDir) + "'";
 		exect(smnt);
 		
 		LOG.info("created external table: " + schema + "." + name);
 		LOG.debug(smnt);
-								
-		return new ITable(this, tableDef);
+		
+		return new ITable(this, newTabDef);
 	}
 
 	public void close(){

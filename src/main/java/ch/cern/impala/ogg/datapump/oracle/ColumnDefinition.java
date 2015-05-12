@@ -15,6 +15,9 @@ public class ColumnDefinition {
 		this.type = type;
 	}
 
+	public ColumnDefinition() {
+	}
+
 	public String getCastAsSql(){
 		return "cast(" + name + " as " + type + ")";
 	}
@@ -37,4 +40,13 @@ public class ColumnDefinition {
 		return type;
 	}
 	
+	public ColumnDefinition clone() {
+		ColumnDefinition newCol = new ColumnDefinition(); 
+		
+		newCol.pos = this.pos;
+		newCol.name = this.name;
+		newCol.type = this.type;
+		
+		return newCol;
+	}
 }

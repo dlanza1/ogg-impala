@@ -11,10 +11,10 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Preconditions;
-
 import ch.cern.impala.ogg.datapump.impala.TypeConverter;
 import ch.cern.impala.ogg.datapump.utils.PropertiesE;
+
+import com.google.common.base.Preconditions;
 
 public class TableDefinition {
 
@@ -34,7 +34,6 @@ public class TableDefinition {
 	HashMap<String, ColumnDefinition> columns_map;
 	
 	String columnsAsSql = null;
-	String columnsAsSqlForExternalTable = null;
 	String columnsWithCastingAsSql = null;
 
 	public TableDefinition(String schema, String table) {
@@ -59,22 +58,6 @@ public class TableDefinition {
 		}
 		
 		return columnsAsSql;
-	}
-	
-	public String getColumnsAsSQLForExternalTable() {
-		
-		if(columnsAsSqlForExternalTable == null){
-			for (ColumnDefinition columnDefinition : columns_list) {
-				if(columnsAsSqlForExternalTable == null){
-					columnsAsSqlForExternalTable = columnDefinition.getName() + " STRING"; 
-				}else{
-					columnsAsSqlForExternalTable = columnsAsSqlForExternalTable 
-									+ ", " + columnDefinition.getName() + " STRING";
-				}
-			}
-		}
-		
-		return columnsAsSqlForExternalTable;
 	}
 	
 	public String getColumnsWithCastingAsSQL() {
@@ -150,7 +133,7 @@ public class TableDefinition {
 		return tableDef;
 	}
 
-	private void addColumnDefinition(ColumnDefinition newColumnDefinition) {
+	public void addColumnDefinition(ColumnDefinition newColumnDefinition) {
 		columns_list.add(newColumnDefinition);
 		columns_map.put(newColumnDefinition.getName(), newColumnDefinition);
 		
@@ -197,9 +180,11 @@ public class TableDefinition {
 				LOG.info("new data type configured for " + columnDef);
 				
 				columnsAsSql = null;
-				columnsAsSqlForExternalTable = null;
 			}
 		}
 	}
-
+	
+	public ArrayList<ColumnDefinition> getColumnsDefinitions(){
+		return columns_list;
+	}
 }
