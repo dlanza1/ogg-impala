@@ -9,37 +9,51 @@ import org.apache.hadoop.fs.Path;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import ch.cern.impala.ogg.datapump.impala.ITable;
+import ch.cern.impala.ogg.datapump.impala.ImpalaClient;
 import ch.cern.impala.ogg.datapump.oracle.ControlFile;
+import ch.cern.impala.ogg.datapump.oracle.TableDefinition;
 
 public class Batch {
 	
 	final private static Logger LOG = LoggerFactory.getLogger(Batch.class);
 
-	private Path stagingHDFSDirectory;
-
+	//File systems
+	private FileSystem local;
+	private FileSystem hdfs;
+	
+	/**
+	 * Source data control file
+	 */
 	private ControlFile controlFile;
 	
-	private ITable targetTable;
+	/**
+	 * Impala client
+	 */
+	private ImpalaClient impC;
+	
+	//Staging data
+	private Path stagingHDFSDirectory;
+	private TableDefinition stagingTableDef;
+	
+	private TableDefinition targetTableDef;
 
 	private List<String> datafiles;
 
-	private FileSystem local;
-
-	private FileSystem hdfs;
-
-	private ITable externalTable; 
-
-	public Batch(FileSystem local, FileSystem hdfs, ControlFile controlFile, ITable targetTable, Path stagingHDFSDirectory) 
+	public Batch(FileSystem local, 
+			FileSystem hdfs, 
+			ControlFile controlFile, 
+			ImpalaClient impC,
+			Path stagingHDFSDirectory,
+			TableDefinition stagingTableDef,
+			TableDefinition targetTableDef) 
 			throws IOException, ClassNotFoundException, SQLException {
 		this.local = local;
 		this.hdfs = hdfs;
-		
 		this.controlFile = controlFile;
-		
+		this.impC = impC;
 		this.stagingHDFSDirectory = stagingHDFSDirectory;
-		
-		this.targetTable = targetTable;
+		this.stagingTableDef = stagingTableDef;
+		this.targetTableDef = targetTableDef;
 	}
 
 	public void start() throws Exception {
@@ -56,9 +70,9 @@ public class Batch {
 			if(!stagingHDFSDirectory.isAbsolute())
 				stagingHDFSDirectory = hdfs.resolvePath(stagingHDFSDirectory);
 			
-			externalTable = targetTable.createStagingTable(stagingHDFSDirectory); 
+			impC.createExternalTable(stagingHDFSDirectory, stagingTableDef); 
 			
-			externalTable.insertoInto(targetTable);
+			impC.insertoInto(stagingTableDef, targetTableDef);
 			
 			controlFile.markAsDataInsertedIntoFinalTable();
 		}
@@ -140,10 +154,11 @@ public class Batch {
 		
 		//Remove staging data in Impala and HDFS
 		try{
-			externalTable.drop();
+			impC.drop(stagingTableDef);
 		}catch(SQLException e){
-			LOG.error("the Impala table " + externalTable + " which contains "
-					+ "the staging data could not be deleted", e);
+			LOG.error("the Impala table " 
+					+ stagingTableDef.getSchemaName() + "." + stagingTableDef.getTableName()
+					+ " which contains the staging data could not be deleted", e);
 			
 			throw e;
 		}

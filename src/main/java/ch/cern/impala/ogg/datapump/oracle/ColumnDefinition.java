@@ -1,31 +1,44 @@
 package ch.cern.impala.ogg.datapump.oracle;
 
 
+
 public class ColumnDefinition {
 	
-	int pos;
+	protected String name;
 	
-	String name;
+	protected String originalName;
 	
-	String type;
-
-	public ColumnDefinition(int pos, String name, String type) {
-		this.pos = pos;
+	protected String type;
+	
+	/**
+	 * Impala format expression which will be used to
+	 * calculate the value of the column
+	 */
+	protected String expression;
+	
+	public ColumnDefinition(String name, String expression, String type) {
 		this.name = name;
+		this.originalName = name;
 		this.type = type;
+		this.expression = expression;
 	}
 
-	public ColumnDefinition() {
+	public ColumnDefinition(String name, String type) {
+		this.name = name;
+		this.originalName = name;
+		this.type = type;
+		
+		this.expression = "cast(" + name + " as " + type + ")";
 	}
-
-	public String getCastAsSql(){
-		return "cast(" + name + " as " + type + ")";
+	
+	public String getExpression(){
+		return expression;
 	}
 
 	@Override
 	public String toString() {
-		return "ColumnDefinition [pos=" + pos + ", name=" + name
-				+ ", type=" + type + "]";
+		return "ColumnDefinition [name=" + name + ", type=" + type
+				+ ", expression=" + expression + "]";
 	}
 
 	public String getName() {
@@ -34,19 +47,36 @@ public class ColumnDefinition {
 
 	public void setType(String newDataType) {
 		this.type = newDataType;
+
+		this.expression = "cast(" + originalName + " as " + newDataType + ")";
 	}
 
 	public String getType() {
 		return type;
 	}
-	
-	public ColumnDefinition clone() {
-		ColumnDefinition newCol = new ColumnDefinition(); 
+
+	public void setExpression(String expression) {
+		this.expression = expression;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	/**
+	 * Apply a custom definition 
+	 * 
+	 * @param custom
+	 */
+	public void applyCustom(ColumnDefinition custom) {
 		
-		newCol.pos = this.pos;
-		newCol.name = this.name;
-		newCol.type = this.type;
+		if(custom.getName() != null)
+			setName(custom.getName());
 		
-		return newCol;
+		if(custom.getType() != null)
+			setType(custom.getType());
+		
+		if(custom.getExpression() != null)
+			setExpression(custom.getExpression());
 	}
 }

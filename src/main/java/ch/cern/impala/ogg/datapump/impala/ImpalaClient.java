@@ -9,7 +9,6 @@ import org.apache.hadoop.fs.Path;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import ch.cern.impala.ogg.datapump.oracle.ColumnDefinition;
 import ch.cern.impala.ogg.datapump.oracle.TableDefinition;
 
 public class ImpalaClient {
@@ -42,7 +41,7 @@ public class ImpalaClient {
 		stmt.close();
 	}
 
-	public ITable createTable(TableDefinition tableDef) throws SQLException {
+	public void createTable(TableDefinition tableDef) throws SQLException {
 		
 		String schema = tableDef.getSchemaName();
 		String name = tableDef.getTableName();
@@ -63,39 +62,44 @@ public class ImpalaClient {
 				throw e;
 			}
 		}
-								
-		return new ITable(this, tableDef);	
-	}
-	
-	public ITable createExternalTable(String schema, String name, Path tableDir, TableDefinition tableDef) throws SQLException {
-		
-		//Create new table definition with STRING data types and new names
-		TableDefinition newTabDef = new TableDefinition(schema, name);
-		for(ColumnDefinition col : tableDef.getColumnsDefinitions()){
-			ColumnDefinition newCol = col.clone();
-			newCol.setType("STRING");
-			newTabDef.addColumnDefinition(newCol);
-		}
-		
-		try{
-			exect("DROP TABLE " + schema + "." + name);
-		}catch(Exception e){}
-		
-		String smnt = "CREATE EXTERNAL TABLE " + schema + "." + name
-								+ " (" + newTabDef.getColumnsAsSQL() + ")"
-								+ " STORED AS textfile"
-								+ " LOCATION '" + Path.getPathWithoutSchemeAndAuthority(tableDir) + "'";
-		exect(smnt);
-		
-		LOG.info("created external table: " + schema + "." + name);
-		LOG.debug(smnt);
-		
-		return new ITable(this, newTabDef);
 	}
 
 	public void close(){
 		try {
 			con.close();
 		} catch (Exception e) {}
+	}
+
+	public void createExternalTable(Path dir, TableDefinition def) throws SQLException {
+		try{
+			exect("DROP TABLE " + def.getSchemaName() + "." + def.getTableName());
+		}catch(Exception e){}
+		
+		String smnt = "CREATE EXTERNAL TABLE " + def.getSchemaName() + "." + def.getTableName()
+								+ " (" + def.getColumnsAsSQL() + ")"
+								+ " STORED AS textfile"
+								+ " LOCATION '" + Path.getPathWithoutSchemeAndAuthority(dir) + "'";
+		exect(smnt);
+		
+		LOG.info("created external table: " + def.getSchemaName() + "." + def.getTableName());
+		LOG.debug(smnt);
+	}
+
+	public void insertoInto(TableDefinition sourceTab, TableDefinition targetTab) throws SQLException {
+		
+		String stmn = "INSERT INTO " + targetTab.getSchemaName() + "." + targetTab.getTableName()
+							+ " SELECT " + targetTab.getExpressions()
+							+ " FROM " + sourceTab.getSchemaName() + "." + sourceTab.getTableName();
+		
+		exect(stmn);
+		
+		LOG.info("inserted data into " + targetTab.getSchemaName() + "." + targetTab.getTableName() 
+					+ " from " + sourceTab.getSchemaName() + "." + sourceTab.getTableName());
+	}
+
+	public void drop(TableDefinition def) throws SQLException {
+		exect("DROP TABLE " + def.getSchemaName() + "." + def.getTableName());
+		
+		LOG.info("deleted table " + def.getSchemaName() + "." + def.getTableName());
 	}
 }

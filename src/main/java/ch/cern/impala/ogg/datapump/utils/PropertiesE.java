@@ -3,12 +3,17 @@ package ch.cern.impala.ogg.datapump.utils;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.Properties;
 
 import org.apache.hadoop.fs.Path;
 import org.apache.log4j.Logger;
 
+import ch.cern.impala.ogg.datapump.oracle.ColumnDefinition;
 import ch.cern.impala.ogg.datapump.oracle.ControlFile;
+import ch.cern.impala.ogg.datapump.oracle.FileFormatException;
+import ch.cern.impala.ogg.datapump.oracle.PartitioningColumnDefinition;
 import ch.cern.impala.ogg.datapump.oracle.TableDefinition;
 
 public class PropertiesE extends Properties {
@@ -26,7 +31,7 @@ public class PropertiesE extends Properties {
 	public static final String SECONDS_BETWEEN_BATCHES = "batch.between.sec";
 	private static final int DEFAULT_SECONDS_BETWEEN_BATCHES = 10;
 
-	private static final String STAGING_HDFS_DIRECTORY = "hdfs.staging.directory";
+	private static final String IMPALA_STAGING_DIRECTORY = "impala.staging.table.directory";
 	private static final String DEFAULT_STAGING_HDFS_DIRECTORY = "ogg/staging";
 	
 	private static final String IMPALA_HOST = "impala.host";
@@ -38,6 +43,41 @@ public class PropertiesE extends Properties {
 	public static final String IMPALA_TABLE_SCHEMA = "impala.table.schema";
 	
 	public static final String IMPALA_TABLE_NAME = "impala.table.name";
+
+	/**
+	 * Parameter that indicates the names of the customized columns
+	 */
+	public static final String CUSTOMIZED_COLUMNS_NAMES = "impala.table.columns.customize";
+	
+	/**
+	 * Describe the parameters which configure the columns
+	 */
+	public static final String COLUMN_PREFIX = "impala.table.column.";
+	
+	/**
+	 * Parameters that indicates the partitioning columns names
+	 */
+	public static final String PARTITIONING_COLUMNS_NAMES = "impala.table.partitioning.columns";
+	
+	/**
+	 * Describe the parameters which configure a partitioning columns
+	 */
+	public static final String PARTITIONING_COLUMN_PREFIX = "impala.table.partitioning.column.";
+
+	/**
+	 * Describe the parameters which configure the data types
+	 */
+	public static final String NAME_SUFFIX = ".name";
+	
+	/**
+	 * Describe the parameters which configure the data types
+	 */
+	public static final String DATATYPE_SUFFIX = ".datatype";
+	
+	/**
+	 * Describe the parameters which configure the expressions
+	 */
+	public static final String EXPRESSION_SUFFIX = ".expression";
 	
 	public PropertiesE() throws IOException{
 		this(DEFAULT_PROPETIES_FILE);
@@ -112,7 +152,7 @@ public class PropertiesE extends Properties {
 	}
 
 	public Path getStagingHDFSDirectory() {
-		return new Path(getProperty(STAGING_HDFS_DIRECTORY, DEFAULT_STAGING_HDFS_DIRECTORY));
+		return new Path(getProperty(IMPALA_STAGING_DIRECTORY, DEFAULT_STAGING_HDFS_DIRECTORY));
 	}
 
 	public String getSourceLocalDirectory() {
@@ -125,6 +165,60 @@ public class PropertiesE extends Properties {
 
 	public int getImpalaPort() {
 		return Integer.valueOf(getProperty(IMPALA_PORT, DEFAULT_IMPALA_PORT));
+	}
+
+	public LinkedList<PartitioningColumnDefinition> getPartitioningColumns() throws FileFormatException {
+		LinkedList<PartitioningColumnDefinition> partColumns = new LinkedList<PartitioningColumnDefinition>();
+		
+		if(!containsKey(PARTITIONING_COLUMNS_NAMES))
+			return partColumns;
+		
+		String[] names = getProperty(PARTITIONING_COLUMNS_NAMES).replaceAll("\\s+","").split(","); 
+		
+		for (String name : names) {
+			String dataTypeProperty = PARTITIONING_COLUMN_PREFIX + name + DATATYPE_SUFFIX;
+			String dataType = getProperty(dataTypeProperty);
+			if(dataType == null){
+				FileFormatException fileFormatException = new FileFormatException(
+						"the data type for the partitioning column " + name
+						+ " must be specified with the parameter " + dataTypeProperty);
+				LOG.error(fileFormatException.getMessage(), fileFormatException);
+				throw fileFormatException;
+			}
+			
+			String expressionProperty = PARTITIONING_COLUMN_PREFIX + name + EXPRESSION_SUFFIX;
+			String expression = getProperty(expressionProperty);
+			if(expression == null){
+				FileFormatException fileFormatException = new FileFormatException(
+						"the expression for the partitioning column " + name
+						+ " must be specified with the parameter " + expressionProperty);
+				LOG.error(fileFormatException.getMessage(), fileFormatException);
+				throw fileFormatException;
+			}
+			
+			partColumns.add(new PartitioningColumnDefinition(name, expression, dataType));
+		}
+		
+		return partColumns;
+	}
+	
+	public HashMap<String, ColumnDefinition> getCustomizedColumns() throws FileFormatException {
+		HashMap<String, ColumnDefinition> customColumns = new HashMap<String, ColumnDefinition>();
+		
+		if(!containsKey(CUSTOMIZED_COLUMNS_NAMES))
+			return customColumns;
+		
+		String[] names = getProperty(CUSTOMIZED_COLUMNS_NAMES).replaceAll("\\s+","").split(","); 
+		
+		for (String name : names) {
+			String newName = getProperty(COLUMN_PREFIX + name + NAME_SUFFIX);
+			String dataType = getProperty(COLUMN_PREFIX + name + DATATYPE_SUFFIX);
+			String expression = getProperty(COLUMN_PREFIX + name + EXPRESSION_SUFFIX);
+			
+			customColumns.put(name, new PartitioningColumnDefinition(newName, expression, dataType));
+		}
+		
+		return customColumns;
 	}
 
 }
