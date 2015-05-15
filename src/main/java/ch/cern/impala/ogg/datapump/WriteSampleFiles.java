@@ -87,7 +87,7 @@ public class WriteSampleFiles {
 		try {
 			writer = new BufferedWriter(new FileWriter(controlFile, true));
         	
-			writer.write(file.getName() + ",");
+			writer.write(file + ",");
 		} finally {
             try {
                 writer.close();

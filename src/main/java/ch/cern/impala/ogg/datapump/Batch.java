@@ -9,9 +9,8 @@ import org.apache.hadoop.fs.Path;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import ch.cern.impala.ogg.datapump.impala.ImpalaClient;
+import ch.cern.impala.ogg.datapump.impala.Query;
 import ch.cern.impala.ogg.datapump.oracle.ControlFile;
-import ch.cern.impala.ogg.datapump.oracle.TableDefinition;
 
 public class Batch {
 	
@@ -26,34 +25,30 @@ public class Batch {
 	 */
 	private ControlFile controlFile;
 	
-	/**
-	 * Impala client
-	 */
-	private ImpalaClient impC;
-	
 	//Staging data
 	private Path stagingHDFSDirectory;
-	private TableDefinition stagingTableDef;
 	
-	private TableDefinition targetTableDef;
+	private Query dropStagingTable;
+	private Query createStagingTable;
+	private Query insertInto;
 
 	private List<String> datafiles;
 
 	public Batch(FileSystem local, 
 			FileSystem hdfs, 
 			ControlFile controlFile, 
-			ImpalaClient impC,
 			Path stagingHDFSDirectory,
-			TableDefinition stagingTableDef,
-			TableDefinition targetTableDef) 
+			Query dropStagingTable,
+			Query createStagingTable,
+			Query insertInto) 
 			throws IOException, ClassNotFoundException, SQLException {
 		this.local = local;
 		this.hdfs = hdfs;
 		this.controlFile = controlFile;
-		this.impC = impC;
 		this.stagingHDFSDirectory = stagingHDFSDirectory;
-		this.stagingTableDef = stagingTableDef;
-		this.targetTableDef = targetTableDef;
+		this.dropStagingTable = dropStagingTable;
+		this.createStagingTable = createStagingTable;
+		this.insertInto = insertInto;
 	}
 
 	public void start() throws Exception {
@@ -61,7 +56,13 @@ public class Batch {
 		if(controlFile.canDataBeLoadedIntoHDFS()){
 			datafiles = controlFile.getDataFileNames();
 			
-			stagingHDFSDirectory = getStagingDirectory(hdfs, stagingHDFSDirectory);
+			//Create staging directory
+			if(!hdfs.mkdirs(stagingHDFSDirectory)){
+				IllegalStateException e = new IllegalStateException(
+								"staging directory could not be created");
+				LOG.error(e.getMessage(), e);
+				throw e;
+			}
 		
 			moveDataFilesToHDFS(local, hdfs, datafiles);
 		}
@@ -70,9 +71,11 @@ public class Batch {
 			if(!stagingHDFSDirectory.isAbsolute())
 				stagingHDFSDirectory = hdfs.resolvePath(stagingHDFSDirectory);
 			
-			impC.createExternalTable(stagingHDFSDirectory, stagingTableDef); 
+			createStagingTable.exect();
+			LOG.info("created staging table");
 			
-			impC.insertoInto(stagingTableDef, targetTableDef);
+			insertInto.exect();
+			LOG.info("copied data from staging table to final table");
 			
 			controlFile.markAsDataInsertedIntoFinalTable();
 		}
@@ -104,7 +107,7 @@ public class Batch {
 			}
 		}
 		
-		//Delete all copied data files
+		//Delete all local copied data files
 		for (String file : files) {
 			Path path = new Path(file);
 			
@@ -120,27 +123,6 @@ public class Batch {
 		LOG.info(files.size() + " files " + "("+ totalSize + " bytes) have been moved to HDFS");
 	}
 
-	private Path getStagingDirectory(FileSystem hdfs, Path directory) throws IOException {
-		
-		if(hdfs.exists(directory)){
-			if(!hdfs.delete(directory, true)){
-				IllegalStateException e = new IllegalStateException("target directory could not be deleted");
-				LOG.error(e.getMessage(), e);
-				throw e;
-			}
-			
-			LOG.warn("the directory " + directory + " had to be deleted in HDFS");
-		}
-		
-		if(!hdfs.mkdirs(directory)){
-			IllegalStateException e = new IllegalStateException("target directory could not be created");
-			LOG.error(e.getMessage(), e);
-			throw e;
-		}
-		
-		return hdfs.resolvePath(directory);
-	}
-
 	public void clean() throws Exception {
 
 		//Delete control file
@@ -154,11 +136,9 @@ public class Batch {
 		
 		//Remove staging data in Impala and HDFS
 		try{
-			impC.drop(stagingTableDef);
+			dropStagingTable.exect();
 		}catch(SQLException e){
-			LOG.error("the Impala table " 
-					+ stagingTableDef.getSchemaName() + "." + stagingTableDef.getTableName()
-					+ " which contains the staging data could not be deleted", e);
+			LOG.error("the staging table could not be deleted", e);
 			
 			throw e;
 		}
@@ -170,6 +150,7 @@ public class Batch {
 			
 			throw e;
 		}
+		LOG.info("deleted staging data");
 	}
 
 }

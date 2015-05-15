@@ -1,4 +1,4 @@
-package ch.cern.impala.ogg.datapump.oracle;
+package ch.cern.impala.ogg.datapump.impala.descriptors;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -12,13 +12,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import ch.cern.impala.ogg.datapump.impala.TypeConverter;
+import ch.cern.impala.ogg.datapump.oracle.FileFormatException;
 import ch.cern.impala.ogg.datapump.utils.PropertiesE;
 
 import com.google.common.base.Preconditions;
 
-public class TableDefinition {
+public class TableDescriptor {
 
-	final private static Logger LOG = LoggerFactory.getLogger(TableDefinition.class);
+	final private static Logger LOG = LoggerFactory.getLogger(TableDescriptor.class);
 
 	/**
 	 * The line of the definition file which indicates the name of the table
@@ -32,67 +33,46 @@ public class TableDefinition {
 	 */
 	private static String PREFIX_NUM_COLUMNS = "Columns: ";
 
+	/**
+	 * Name of the table schema
+	 */
 	String schemaName;
+	
+	/**
+	 * Name of the table
+	 */
 	String tableName;
 
 	/**
 	 * List of columns (useful when we want the columns in order)
 	 */
-	ArrayList<ColumnDefinition> columns_list;
+	ArrayList<ColumnDescriptor> columns_list;
+	
+	/**
+	 * List of partition columns
+	 */
+	ArrayList<ColumnDescriptor> paritioningColumns_list;
 	
 	/**
 	 * Map of columns (useful when we want to find a column by the name)
 	 */
-	HashMap<String, ColumnDefinition> columns_map;
-	
-	String columnsAsSql = null;
-	String columnsWithCastingAsSql = null;
+	HashMap<String, ColumnDescriptor> columns_map;
 
-	public TableDefinition(String schema, String table) {
+	public TableDescriptor(String schema, String table) {
 		this.schemaName = schema;
 		this.tableName = table;
 		
-		columns_list = new ArrayList<ColumnDefinition>();
-		columns_map = new HashMap<String, ColumnDefinition>();
+		columns_list = new ArrayList<ColumnDescriptor>();
+		paritioningColumns_list = new ArrayList<ColumnDescriptor>();
+		columns_map = new HashMap<String, ColumnDescriptor>();
 		
-		LOG.debug("created table definition for schema=" + schema + " table=" + table);
+		LOG.debug("created table descriptor for schema=" + schema + " table=" + table);
 	}
 
-	public String getColumnsAsSQL() {
-		
-		if(columnsAsSql == null){
-			for (ColumnDefinition columnDefinition : columns_list) {
-				if(columnsAsSql == null){
-					columnsAsSql = columnDefinition.getName() + " " + columnDefinition.getType(); 
-				}else{
-					columnsAsSql = columnsAsSql
-							+ ", " + columnDefinition.getName() + " " + columnDefinition.getType();
-				}
-			}
-		}
-		
-		return columnsAsSql;
-	}
-	
-	/**
-	 * Get a string with the expressions of all columns separated by comma
-	 * that once applied produce the values of each column
-	 * 
-	 * @return the expressions of all columns
-	 */
-	public String getExpressions() {
-		if(columnsWithCastingAsSql == null){
-			for (ColumnDefinition columnDefinition : columns_list) {
-				if(columnsWithCastingAsSql == null){
-					columnsWithCastingAsSql = columnDefinition.getExpression(); 
-				}else{
-					columnsWithCastingAsSql = columnsWithCastingAsSql 
-									+ ", " + columnDefinition.getExpression();
-				}
-			}
-		}
-		
-		return columnsWithCastingAsSql;
+	private TableDescriptor() {
+		columns_list = new ArrayList<ColumnDescriptor>();
+		paritioningColumns_list = new ArrayList<ColumnDescriptor>();
+		columns_map = new HashMap<String, ColumnDescriptor>();
 	}
 
 	public String getSchemaName() {
@@ -102,14 +82,20 @@ public class TableDefinition {
 	public String getTableName() {
 		return tableName;
 	}
+	
+	public ArrayList<ColumnDescriptor> getColumnDefinitions() {
+		return columns_list;
+	}
+	
+	public ArrayList<ColumnDescriptor> getPartitioningColumnDefinitions() {
+		return paritioningColumns_list;
+	}
 
-	public static TableDefinition create(PropertiesE prop) throws IOException {
-		
-		File definitionFile = prop.getDefinitionFile();
+	public static TableDescriptor createFromFile(File definitionFile) throws IOException {
 
 		LOG.info("reading table definition from " + definitionFile.getAbsolutePath());
 
-		TableDefinition tableDef = null;
+		TableDescriptor tableDes = null;
 
 		@SuppressWarnings("resource")
 		BufferedReader br = new BufferedReader(new FileReader(definitionFile));
@@ -124,12 +110,12 @@ public class TableDefinition {
 				String schema = fields[0];
 				String table = fields[1];
 				
-				tableDef = new TableDefinition(schema, table);
+				tableDes = new TableDescriptor(schema, table);
 			}else if(line.startsWith(PREFIX_NUM_COLUMNS)){
 				
 				//If it find the line which contains the number of rows before
 				//the line of the table name, the format of the file is not correct
-				if(tableDef == null){
+				if(tableDes == null){
 					FileFormatException formatExcep = new FileFormatException(
 							"the format of the definition file is not correct because "
 							+ "the line starting with '" + PREFIX_TABLE_NAME + "' was not found.");
@@ -154,13 +140,10 @@ public class TableDefinition {
 					String type = TypeConverter.toImpalaType(jdbcType).toString();
 					
 					//Create column definition and add it
-					tableDef.addColumnDefinition(new ColumnDefinition(name, type));
+					tableDes.addColumnDescriptor(new ColumnDescriptor(name, type));
 				}
 				
-				//Apply custom configuration to the target table definition
-				tableDef.applyCustomConfiguration(prop);
-				
-				return tableDef;
+				return tableDes;
 			}
 		}
 
@@ -168,17 +151,21 @@ public class TableDefinition {
 		FileFormatException formatExcep = new FileFormatException(
 				"the format of the definition file is not correct because "
 				+ "the line starting with '" 
-				+ (tableDef == null ? PREFIX_TABLE_NAME : PREFIX_NUM_COLUMNS) 
+				+ (tableDes == null ? PREFIX_TABLE_NAME : PREFIX_NUM_COLUMNS) 
 				+ "' was not found.");
 		LOG.error(formatExcep.getMessage(), formatExcep);
 		throw formatExcep;
 	}
 
-	public void addColumnDefinition(ColumnDefinition newColumnDefinition) {
-		columns_list.add(newColumnDefinition);
-		columns_map.put(newColumnDefinition.getName(), newColumnDefinition);
+	public void addColumnDescriptor(ColumnDescriptor newColumnDescriptor) {
+		if(newColumnDescriptor instanceof PartitioningColumnDescriptor)
+			paritioningColumns_list.add(newColumnDescriptor);
+		else
+			columns_list.add(newColumnDescriptor);
 		
-		LOG.debug("new column definition: " + newColumnDefinition);
+		columns_map.put(newColumnDescriptor.getName(), newColumnDescriptor);
+		
+		LOG.debug("new column descriptor: " + newColumnDescriptor);
 	}
 
 	/**
@@ -203,59 +190,77 @@ public class TableDefinition {
 	}
 
 	private void applyCustomColumnConfiguration(PropertiesE prop) throws FileFormatException {
-		HashMap<String, ColumnDefinition> customColumns = prop.getCustomizedColumns();
+		HashMap<String, ColumnDescriptor> customColumns = prop.getCustomizedColumns();
 		
 		for (String customColumnName : customColumns.keySet()) {
 			Preconditions.checkState(columns_map.containsKey(customColumnName),
 					"the column " + customColumnName + " does not exist, "
-							+ "you must customize the columns "
+							+ "you must customize columns "
 							+ "that exist in the definition file.");
 			
-			ColumnDefinition customColumn = customColumns.get(customColumnName);
+			ColumnDescriptor customColumn = customColumns.get(customColumnName);
 			
 			// Set custom values
-			ColumnDefinition columnDef = columns_map.get(customColumnName);
+			ColumnDescriptor columnDef = columns_map.get(customColumnName);
 			columnDef.applyCustom(customColumn);
 			
 			LOG.debug("applied custom values for column " + customColumnName + ": " + columnDef);
-			
-			columnsAsSql = null;
 		}
 	}
 	
 	private void applyPartitioningColumns(PropertiesE prop) throws FileFormatException {
-		LinkedList<PartitioningColumnDefinition> partitioningColumns = prop.getPartitioningColumns();
+		LinkedList<PartitioningColumnDescriptor> partitioningColumns = prop.getPartitioningColumns();
 		
-		for (PartitioningColumnDefinition partitioningColumn : partitioningColumns){
-			addColumnDefinition(partitioningColumn);
+		for (PartitioningColumnDescriptor partitioningColumn : partitioningColumns){
+			addColumnDescriptor(partitioningColumn);
 			
 			LOG.debug("added partitioning column " + partitioningColumn.getName());
 		}
 	}
 	
-	public TableDefinition getDefinitionForStagingTable() {
-		TableDefinition stagingTableDef = new TableDefinition(
+	public StagingTableDescriptor getDefinitionForStagingTable() {
+		StagingTableDescriptor stagingTableDef = new StagingTableDescriptor(
 												schemaName, 
 												tableName.concat("_staging"));
 		
-		for(ColumnDefinition colDef:columns_list){
-			if(!(colDef instanceof PartitioningColumnDefinition)){
-				stagingTableDef.addColumnDefinition(new ColumnDefinition(colDef.getName(), null, "STRING"));
+		for(ColumnDescriptor colDef:columns_list){
+			if(!(colDef instanceof PartitioningColumnDescriptor)){
+				stagingTableDef.addColumnDescriptor(new ColumnDescriptor(colDef.getName(), null, "STRING"));
 			}
 		}
 		
 		return stagingTableDef;
 	}
 
-	public void log() {
+	public String toString() {
 		StringBuilder sb = new StringBuilder();
 		
-		sb.append("table definition for " + schemaName + "." + tableName + " with columns:");
+		sb.append("table descriptor (" + schemaName + "." + tableName + ") with columns:");
 		
-		for(ColumnDefinition colDef:columns_list){
+		for(ColumnDescriptor colDef:columns_list){
 			sb.append("\n  - " + colDef.toString());
 		}
 		
-		LOG.info(sb.toString());
+		for(ColumnDescriptor colDef:paritioningColumns_list){
+			sb.append("\n  - " + colDef.toString());
+		}
+		
+		return sb.toString();
+	}
+	
+	@Override
+	public Object clone() throws CloneNotSupportedException {
+		TableDescriptor clone = new TableDescriptor();
+		
+		clone.schemaName = schemaName;
+		clone.tableName = tableName;
+		
+		for (ColumnDescriptor columnDefinition : columns_list) {
+			ColumnDescriptor cloneCol = (ColumnDescriptor) columnDefinition.clone();
+			
+			clone.addColumnDescriptor(cloneCol);
+		}
+		
+		return clone;
 	}
 }

@@ -10,11 +10,11 @@ import java.util.Properties;
 import org.apache.hadoop.fs.Path;
 import org.apache.log4j.Logger;
 
-import ch.cern.impala.ogg.datapump.oracle.ColumnDefinition;
+import ch.cern.impala.ogg.datapump.impala.descriptors.ColumnDescriptor;
+import ch.cern.impala.ogg.datapump.impala.descriptors.PartitioningColumnDescriptor;
+import ch.cern.impala.ogg.datapump.impala.descriptors.TableDescriptor;
 import ch.cern.impala.ogg.datapump.oracle.ControlFile;
 import ch.cern.impala.ogg.datapump.oracle.FileFormatException;
-import ch.cern.impala.ogg.datapump.oracle.PartitioningColumnDefinition;
-import ch.cern.impala.ogg.datapump.oracle.TableDefinition;
 
 public class PropertiesE extends Properties {
 	private static final long serialVersionUID = 3733307414558688437L;
@@ -29,10 +29,10 @@ public class PropertiesE extends Properties {
 	public static final String OGG_DEFINITION_FILE_NAME = "ogg.definition.file.name";
 
 	public static final String SECONDS_BETWEEN_BATCHES = "batch.between.sec";
-	private static final int DEFAULT_SECONDS_BETWEEN_BATCHES = 10;
+	private static final int DEFAULT_SECONDS_BETWEEN_BATCHES = 30;
 
 	private static final String IMPALA_STAGING_DIRECTORY = "impala.staging.table.directory";
-	private static final String DEFAULT_STAGING_HDFS_DIRECTORY = "ogg/staging";
+	private static final String DEFAULT_STAGING_HDFS_DIRECTORY = "ogg/staging/";
 	
 	private static final String IMPALA_HOST = "impala.host";
 	private static final String DEFAULT_IMPALA_HOST = "localhost";
@@ -41,8 +41,10 @@ public class PropertiesE extends Properties {
 	private static final String DEFAULT_IMPALA_PORT = "21050";
 
 	public static final String IMPALA_TABLE_SCHEMA = "impala.table.schema";
+	public static final String IMPALA_STAGING_TABLE_SCHEMA = "impala.staging.table.schema";
 	
 	public static final String IMPALA_TABLE_NAME = "impala.table.name";
+	public static final String IMPALA_STAGING_TABLE_NAME = "impala.staging.table.name";
 
 	/**
 	 * Parameter that indicates the names of the customized columns
@@ -79,6 +81,11 @@ public class PropertiesE extends Properties {
 	 */
 	public static final String EXPRESSION_SUFFIX = ".expression";
 	
+	private static final String CREATE_STAGING_TABLE_QUERY = "impala.staging.table.query.create";
+	private static final String DROP_STAGING_TABLE_QUERY = "impala.staging.table.query.drop";
+	private static final String INSERT_INTO_QUERY = "impala.table.query.insert";
+	private static final String CREATE_TABLE_QUERY = "impala.table.query.create";
+	
 	public PropertiesE() throws IOException{
 		this(DEFAULT_PROPETIES_FILE);
 	}
@@ -100,7 +107,7 @@ public class PropertiesE extends Properties {
 
 	}
 
-	public ControlFile getSourceContorlFile(TableDefinition tableDef) throws IllegalStateException, IOException {
+	public ControlFile getSourceContorlFile(TableDescriptor tableDes) throws IllegalStateException, IOException {
 		String oggDataFolder_prop = getProperty(OGG_DATA_FOLDER);
 		
 		if(oggDataFolder_prop == null){
@@ -114,8 +121,8 @@ public class PropertiesE extends Properties {
 		String sourceControlFile_prop = getProperty(OGG_CONTROL_FILE_NAME);
 		
 		if(sourceControlFile_prop == null){
-			sourceControlFile_prop = tableDef.getSchemaName() 
-					+ "." + tableDef.getTableName() + "control"; 
+			sourceControlFile_prop = tableDes.getSchemaName() 
+					+ "." + tableDes.getTableName() + "control"; 
 			
 			LOG.warn("the name of the control control file was not specified, "
 					+ "so the default name will be used (" + sourceControlFile_prop + ")");
@@ -151,8 +158,9 @@ public class PropertiesE extends Properties {
 		return seconds_between_batches * 1000;
 	}
 
-	public Path getStagingHDFSDirectory() {
-		return new Path(getProperty(IMPALA_STAGING_DIRECTORY, DEFAULT_STAGING_HDFS_DIRECTORY));
+	public Path getStagingHDFSDirectory(String schema, String table) {
+		return new Path(getProperty(IMPALA_STAGING_DIRECTORY, 
+				DEFAULT_STAGING_HDFS_DIRECTORY + schema + "/" + table));
 	}
 
 	public String getSourceLocalDirectory() {
@@ -167,8 +175,8 @@ public class PropertiesE extends Properties {
 		return Integer.valueOf(getProperty(IMPALA_PORT, DEFAULT_IMPALA_PORT));
 	}
 
-	public LinkedList<PartitioningColumnDefinition> getPartitioningColumns() throws FileFormatException {
-		LinkedList<PartitioningColumnDefinition> partColumns = new LinkedList<PartitioningColumnDefinition>();
+	public LinkedList<PartitioningColumnDescriptor> getPartitioningColumns() throws FileFormatException {
+		LinkedList<PartitioningColumnDescriptor> partColumns = new LinkedList<PartitioningColumnDescriptor>();
 		
 		if(!containsKey(PARTITIONING_COLUMNS_NAMES))
 			return partColumns;
@@ -196,14 +204,14 @@ public class PropertiesE extends Properties {
 				throw fileFormatException;
 			}
 			
-			partColumns.add(new PartitioningColumnDefinition(name, expression, dataType));
+			partColumns.add(new PartitioningColumnDescriptor(name, expression, dataType));
 		}
 		
 		return partColumns;
 	}
 	
-	public HashMap<String, ColumnDefinition> getCustomizedColumns() throws FileFormatException {
-		HashMap<String, ColumnDefinition> customColumns = new HashMap<String, ColumnDefinition>();
+	public HashMap<String, ColumnDescriptor> getCustomizedColumns() throws FileFormatException {
+		HashMap<String, ColumnDescriptor> customColumns = new HashMap<String, ColumnDescriptor>();
 		
 		if(!containsKey(CUSTOMIZED_COLUMNS_NAMES))
 			return customColumns;
@@ -215,10 +223,25 @@ public class PropertiesE extends Properties {
 			String dataType = getProperty(COLUMN_PREFIX + name + DATATYPE_SUFFIX);
 			String expression = getProperty(COLUMN_PREFIX + name + EXPRESSION_SUFFIX);
 			
-			customColumns.put(name, new PartitioningColumnDefinition(newName, expression, dataType));
+			customColumns.put(name, new PartitioningColumnDescriptor(newName, expression, dataType));
 		}
 		
 		return customColumns;
 	}
 
+	public String getCreateStagingTableQuery() {
+		return getProperty(CREATE_STAGING_TABLE_QUERY);
+	}
+
+	public String getInsertIntoQuery() {
+		return getProperty(INSERT_INTO_QUERY);
+	}
+
+	public String getCreateTableQuery() {
+		return getProperty(CREATE_TABLE_QUERY);
+	}
+
+	public String getDropStagingTableQuery() {
+		return getProperty(DROP_STAGING_TABLE_QUERY);
+	}
 }

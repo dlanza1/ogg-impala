@@ -1,12 +1,8 @@
-package ch.cern.impala.ogg.datapump.oracle;
+package ch.cern.impala.ogg.datapump.impala.descriptors;
 
-
-
-public class ColumnDefinition {
+public class ColumnDescriptor {
 	
 	protected String name;
-	
-	protected String originalName;
 	
 	protected String type;
 	
@@ -16,28 +12,28 @@ public class ColumnDefinition {
 	 */
 	protected String expression;
 	
-	public ColumnDefinition(String name, String expression, String type) {
+	public ColumnDescriptor(String name, String expression, String type) {
 		this.name = name;
-		this.originalName = name;
 		this.type = type;
 		this.expression = expression;
 	}
 
-	public ColumnDefinition(String name, String type) {
+	public ColumnDescriptor(String name, String type) {
 		this.name = name;
-		this.originalName = name;
 		this.type = type;
-		
 		this.expression = "cast(" + name + " as " + type + ")";
 	}
 	
+	public ColumnDescriptor() {
+	}
+
 	public String getExpression(){
 		return expression;
 	}
 
 	@Override
 	public String toString() {
-		return "ColumnDefinition [name=" + name + ", type=" + type
+		return "ColumnDescriptor [name=" + name + ", type=" + type
 				+ ", expression=" + expression + "]";
 	}
 
@@ -47,8 +43,6 @@ public class ColumnDefinition {
 
 	public void setType(String newDataType) {
 		this.type = newDataType;
-
-		this.expression = "cast(" + originalName + " as " + newDataType + ")";
 	}
 
 	public String getType() {
@@ -68,7 +62,7 @@ public class ColumnDefinition {
 	 * 
 	 * @param custom
 	 */
-	public void applyCustom(ColumnDefinition custom) {
+	public void applyCustom(ColumnDescriptor custom) {
 		
 		if(custom.getName() != null)
 			setName(custom.getName());
@@ -78,5 +72,16 @@ public class ColumnDefinition {
 		
 		if(custom.getExpression() != null)
 			setExpression(custom.getExpression());
+	}
+	
+	@Override
+	protected Object clone() throws CloneNotSupportedException {
+		ColumnDescriptor clone = new ColumnDescriptor();
+		
+		clone.name = name;
+		clone.type = type;
+		clone.expression = expression;
+		
+		return clone;
 	}
 }
