@@ -12,8 +12,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import ch.cern.impala.ogg.datapump.impala.ImpalaClient;
-import ch.cern.impala.ogg.datapump.impala.QueryBuilder;
 import ch.cern.impala.ogg.datapump.impala.Query;
+import ch.cern.impala.ogg.datapump.impala.QueryBuilder;
 import ch.cern.impala.ogg.datapump.impala.descriptors.StagingTableDescriptor;
 import ch.cern.impala.ogg.datapump.impala.descriptors.TableDescriptor;
 import ch.cern.impala.ogg.datapump.oracle.ControlFile;
@@ -193,15 +193,18 @@ public class ImpalaDataLoader {
 	private Path testStagingDirectory(FileSystem hdfs, Path directory)
 			throws IOException {
 		
-		if (!hdfs.exists(directory)) {
-			if (!hdfs.mkdirs(directory)) {
-				IllegalStateException e = new IllegalStateException(
-						"target directory could not be created");
-				LOG.error(e.getMessage(), e);
-				throw e;
-			}
-			
-			LOG.info("the staging directory (" + directory + ") will be deleted");
+		if (hdfs.exists(directory)) {			
+			IllegalStateException e = new IllegalStateException(
+					"the staging directory (" + directory + ") must be removed");
+			LOG.error(e.getMessage(), e);
+			throw e;
+		}
+		
+		if (!hdfs.mkdirs(directory)) {
+			IllegalStateException e = new IllegalStateException(
+					"target directory could not be created");
+			LOG.error(e.getMessage(), e);
+			throw e;
 		}
 
 		Path stagingDirectory = hdfs.resolvePath(directory);
@@ -219,7 +222,7 @@ public class ImpalaDataLoader {
 	public static void main(String[] args) throws Exception {
 		String prop_file = args == null || args.length != 1 || args[0] == null ? 
 				PropertiesE.DEFAULT_PROPETIES_FILE : args[0];
-
+		
 		LOG.info("inicializing loader (properties file = " + prop_file + ")");
 
 		// Load properties file

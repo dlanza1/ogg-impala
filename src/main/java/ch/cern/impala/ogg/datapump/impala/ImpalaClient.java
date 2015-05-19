@@ -31,6 +31,8 @@ public class ImpalaClient {
 			throw e;
 		}	
 		
+		LOG.debug("Impala client has been initialized (" + host + ":" + port + ")");
+		
 		queryBuilder = new QueryBuilder(this);
 	}
 	

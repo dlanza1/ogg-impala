@@ -13,7 +13,7 @@ public class Query {
 	
 	public Query(String statement, ImpalaClient client) {
 		this.statement = statement;
-		this.client = null;
+		this.client = client;
 		
 		LOG.debug("new query: " + this.statement);
 	}
@@ -23,9 +23,9 @@ public class Query {
 	}
 
 	public void exect() throws SQLException {
-		LOG.debug("executed query: " + this);
-		
 		client.exect(this);
+		
+		LOG.debug("executed query: " + this);
 	}
 	
 	@Override
