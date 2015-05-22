@@ -129,7 +129,7 @@ public class QueryBuilder {
 	}
 
 	public Query dropTable(TableDescriptor des) {
-		String stmnt = "DROP TABLE" + des.getSchemaName() + "." + des.getTableName(); 
+		String stmnt = "DROP TABLE " + des.getSchemaName() + "." + des.getTableName(); 
 		
 		return new Query(stmnt, client);
 	}

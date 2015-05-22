@@ -12,7 +12,6 @@ import org.apache.log4j.Logger;
 
 import ch.cern.impala.ogg.datapump.impala.descriptors.ColumnDescriptor;
 import ch.cern.impala.ogg.datapump.impala.descriptors.PartitioningColumnDescriptor;
-import ch.cern.impala.ogg.datapump.impala.descriptors.TableDescriptor;
 import ch.cern.impala.ogg.datapump.oracle.ControlFile;
 import ch.cern.impala.ogg.datapump.oracle.FileFormatException;
 
@@ -31,7 +30,7 @@ public class PropertiesE extends Properties {
 	public static final String SECONDS_BETWEEN_BATCHES = "batch.between.sec";
 	private static final int DEFAULT_SECONDS_BETWEEN_BATCHES = 30;
 
-	private static final String IMPALA_STAGING_DIRECTORY = "impala.staging.table.directory";
+	public static final String IMPALA_STAGING_DIRECTORY = "impala.staging.table.directory";
 	private static final String DEFAULT_STAGING_HDFS_DIRECTORY = "ogg/staging/";
 	
 	private static final String IMPALA_HOST = "impala.host";
@@ -107,7 +106,7 @@ public class PropertiesE extends Properties {
 
 	}
 
-	public ControlFile getSourceContorlFile(TableDescriptor tableDes) throws IllegalStateException, IOException {
+	public ControlFile getSourceContorlFile(String schema, String table) throws IllegalStateException, IOException {
 		String oggDataFolder_prop = getProperty(OGG_DATA_FOLDER);
 		
 		if(oggDataFolder_prop == null){
@@ -121,8 +120,7 @@ public class PropertiesE extends Properties {
 		String sourceControlFile_prop = getProperty(OGG_CONTROL_FILE_NAME);
 		
 		if(sourceControlFile_prop == null){
-			sourceControlFile_prop = tableDes.getSchemaName() 
-					+ "." + tableDes.getTableName() + "control"; 
+			sourceControlFile_prop = schema + "." + table + "control"; 
 			
 			LOG.warn("the name of the control control file was not specified, "
 					+ "so the default name will be used (" + sourceControlFile_prop + ")");

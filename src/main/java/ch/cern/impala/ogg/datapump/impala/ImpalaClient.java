@@ -23,13 +23,13 @@ public class ImpalaClient {
 
 		Class.forName(JDBC_DRIVER_NAME);
 
-		try {
-			con = DriverManager.getConnection(connection_url);
-		} catch (SQLException e) {
-			LOG.error(e.getMessage(), e);
-			
-			throw e;
-		}	
+//		try {
+//			con = DriverManager.getConnection(connection_url);
+//		} catch (SQLException e) {
+//			LOG.error(e.getMessage(), e);
+//			
+//			throw e;
+//		}	
 		
 		LOG.debug("Impala client has been initialized (" + host + ":" + port + ")");
 		

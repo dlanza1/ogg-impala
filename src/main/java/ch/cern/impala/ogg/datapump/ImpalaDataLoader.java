@@ -11,6 +11,8 @@ import org.apache.hadoop.hdfs.DistributedFileSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Preconditions;
+
 import ch.cern.impala.ogg.datapump.impala.ImpalaClient;
 import ch.cern.impala.ogg.datapump.impala.Query;
 import ch.cern.impala.ogg.datapump.impala.QueryBuilder;
@@ -43,6 +45,93 @@ public class ImpalaDataLoader {
 	private Query createTargetTable;
 
 	public ImpalaDataLoader(PropertiesE prop) throws Exception {
+		
+		// Get file systems
+		Configuration conf = new Configuration();
+		conf.set("fs.hdfs.impl", DistributedFileSystem.class.getName());
+		hdfs = FileSystem.get(conf);
+		conf.set("fs.file.impl", LocalFileSystem.class.getName());
+		local = FileSystem.getLocal(conf);
+		
+		// Get Impala client
+		ImpalaClient impalaClient = new ImpalaClient(prop.getImpalaHost(), prop.getImpalaPort());
+		
+		
+		// We can run the loader either configuring the definition file path 
+		// or configuring all the necessary queries 
+		
+		// Check if the path to the definition file was specified
+		if(prop.containsKey(PropertiesE.OGG_DEFINITION_FILE_NAME)){
+			// If so, create tables form definition file and
+			// apply custom configuration
+			
+			configureFromDefinitionFile(prop, impalaClient);
+		}else{
+			// Else, we check all configuration needed and then create
+			// the queries, the path to the staging directory and the control file
+			
+			String createStagingTableQuery_prop = prop.getCreateStagingTableQuery();
+			String dropStagingTableQuery_prop = prop.getDropStagingTableQuery();
+			String insertIntoQuery_prop = prop.getInsertIntoQuery();
+			String createTargetTableQuery_prop = prop.getCreateTableQuery();
+			
+			if(createStagingTableQuery_prop == null
+					|| dropStagingTableQuery_prop == null
+					|| insertIntoQuery_prop == null
+					|| createTargetTableQuery_prop == null
+					|| prop.containsKey(PropertiesE.IMPALA_STAGING_DIRECTORY) == false
+					|| prop.containsKey(PropertiesE.OGG_CONTROL_FILE_NAME) == false){
+				
+				IllegalStateException e = new IllegalStateException("the loader could be initialized"
+						+ " because the configuration is not valid. You must specify either the "
+						+ "definition file path, or the paameters for the four queries, the staging "
+						+ "directory and the name of the control file.");
+				
+				LOG.error(e.getMessage(), e);
+				throw e;
+			}
+			
+			// Get query for creating staging table
+			createStagingTable = new Query(createStagingTableQuery_prop, impalaClient);
+			// Get query for dropping staging table
+			dropStagingTable = new Query(dropStagingTableQuery_prop, impalaClient);
+			// Get query for importing data from staging table to final table
+			insertInto = new Query(insertIntoQuery_prop, impalaClient);
+			// Get query for creating target table
+			createTargetTable = new Query(createTargetTableQuery_prop, impalaClient);
+			
+			stagingHDFSDirectory = prop.getStagingHDFSDirectory(null, null);
+			
+			sourceControlFile = prop.getSourceContorlFile(null, null);
+		}
+		
+		// Check if staging directory does not exist
+		// If it does not exist, create and remove it
+		stagingHDFSDirectory = testStagingDirectory(hdfs, stagingHDFSDirectory);
+	
+		LOG.info("query to create staging table set to: " + createStagingTable);
+		LOG.info("query to drop staging table set to: " + dropStagingTable);
+		LOG.info("insert query set to: " + insertInto);
+		LOG.info("create target table query set to: " + createTargetTable);
+		LOG.info("reading control data from " + sourceControlFile);
+
+		// Create target table if it does not exist
+		try {
+			createTargetTable.exect();
+			LOG.info("created final table");
+		} catch (SQLException e) {
+			if (!e.getMessage().contains("Table already exists:")) {
+				LOG.error("final table could not be created", e);
+				throw e;
+			}
+		}
+
+		// Configure period of time for checking new data
+		ms_between_batches = prop.getTimeBetweenBatches();
+	}
+
+	private void configureFromDefinitionFile(PropertiesE prop, ImpalaClient impalaClient)
+			throws IllegalStateException, IOException, CloneNotSupportedException {
 
 		// Get source table descriptor
 		TableDescriptor sourceTableDes = TableDescriptor.createFromFile(prop.getDefinitionFile());
@@ -55,20 +144,11 @@ public class ImpalaDataLoader {
 		// Get staging table descriptor
 		StagingTableDescriptor stagingTableDes = sourceTableDes.getDefinitionForStagingTable();
 		stagingTableDes.applyCustomConfiguration(prop);
-
-		// Get file systems
-		Configuration conf = new Configuration();
-		conf.set("fs.hdfs.impl", DistributedFileSystem.class.getName());
-		hdfs = FileSystem.get(conf);
-		conf.set("fs.file.impl", LocalFileSystem.class.getName());
-		local = FileSystem.getLocal(conf);
-
+		
 		// Perform test on staging directory
 		stagingHDFSDirectory = prop.getStagingHDFSDirectory(
 								targetTableDes.getSchemaName(), targetTableDes.getTableName());
-		stagingHDFSDirectory = testStagingDirectory(hdfs, stagingHDFSDirectory);
-
-		ImpalaClient impalaClient = new ImpalaClient(prop.getImpalaHost(), prop.getImpalaPort());
+		
 		QueryBuilder queryBuilder = impalaClient.getQueryBuilder();
 
 		// Get query for creating staging table
@@ -110,24 +190,10 @@ public class ImpalaDataLoader {
 			createTargetTable = new Query(createTargetTableQuery_prop, impalaClient);
 			LOG.info("create target table query set to: " + createTargetTable);
 		}
-
-		// Create target table if it does not exist
-		try {
-			createTargetTable.exect();
-			LOG.info("created final table");
-		} catch (SQLException e) {
-			if (!e.getMessage().contains("Table already exists:")) {
-				LOG.error("final table could not be created", e);
-				throw e;
-			}
-		}
-
+		
 		// Get control file which is generated by OGG
-		sourceControlFile = prop.getSourceContorlFile(stagingTableDes);
-		LOG.info("reading control data from " + sourceControlFile);
-
-		// Period of time for checking new data
-		ms_between_batches = prop.getTimeBetweenBatches();
+		sourceControlFile = prop.getSourceContorlFile(stagingTableDes.getSchemaName(),
+														stagingTableDes.getTableName());
 	}
 
 	private void start() throws Exception {
