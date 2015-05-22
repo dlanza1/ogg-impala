@@ -65,6 +65,8 @@ public class Batch {
 			}
 		
 			moveDataFilesToHDFS(local, hdfs, datafiles);
+			
+			controlFile.filesLoadedIntoHDFS();
 		}
 		
 		if(controlFile.canDataBeInsertedIntoFinalTable()){
@@ -117,8 +119,6 @@ public class Batch {
 				throw new IllegalStateException("the data file " + file + " could not be deleted");
 			}
 		}
-		
-		controlFile.filesLoadedIntoHDFS();
 		
 		LOG.info(files.size() + " files " + "("+ totalSize + " bytes) have been moved to HDFS");
 	}

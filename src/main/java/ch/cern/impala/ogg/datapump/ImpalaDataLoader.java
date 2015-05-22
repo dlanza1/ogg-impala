@@ -11,8 +11,6 @@ import org.apache.hadoop.hdfs.DistributedFileSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Preconditions;
-
 import ch.cern.impala.ogg.datapump.impala.ImpalaClient;
 import ch.cern.impala.ogg.datapump.impala.Query;
 import ch.cern.impala.ogg.datapump.impala.QueryBuilder;
@@ -247,39 +245,45 @@ public class ImpalaDataLoader {
 	}
 
 	/**
-	 * Check if the staging directory can be created and deleted
-	 * 
-	 * NOTE: If the directory exists, it will be deleted (and all the contained content)
+	 * Check if the staging directory can be created and deleted (if it does not exist)
 	 * 
 	 * @param hdfs File system
 	 * @param directory Future staging directory to check
 	 * @return Resolved directory
 	 * @throws IOException
 	 */
-	private Path testStagingDirectory(FileSystem hdfs, Path directory)
-			throws IOException {
+	private Path testStagingDirectory(FileSystem hdfs, Path directory) throws IOException {
 		
-		if (hdfs.exists(directory)) {			
-			IllegalStateException e = new IllegalStateException(
-					"the staging directory (" + directory + ") must be removed");
-			LOG.error(e.getMessage(), e);
-			throw e;
-		}
+		Path stagingDirectory;
 		
-		if (!hdfs.mkdirs(directory)) {
-			IllegalStateException e = new IllegalStateException(
-					"target directory could not be created");
-			LOG.error(e.getMessage(), e);
-			throw e;
-		}
+		// If the directory aready exists
+		if (hdfs.exists(directory)) {	
+			
+			//Resolve absolute path
+			stagingDirectory = hdfs.resolvePath(directory);
+			
+			LOG.warn("the staging directory " + stagingDirectory + " already exists");
+		}else{
+		// else the directory does not exist
+			
+			// create the directory
+			if (!hdfs.mkdirs(directory)) {
+				IllegalStateException e = new IllegalStateException(
+						"target directory could not be created");
+				LOG.error(e.getMessage(), e);
+				throw e;
+			}
 
-		Path stagingDirectory = hdfs.resolvePath(directory);
+			// resolve absolute path
+			stagingDirectory = hdfs.resolvePath(directory);
 
-		if (!hdfs.delete(directory, true)) {
-			IllegalStateException e = new IllegalStateException(
-					"target directory could not be deleted");
-			LOG.error(e.getMessage(), e);
-			throw e;
+			// delete the directory
+			if (!hdfs.delete(directory, true)) {
+				IllegalStateException e = new IllegalStateException(
+						"target directory could not be deleted");
+				LOG.error(e.getMessage(), e);
+				throw e;
+			}
 		}
 
 		return stagingDirectory;
