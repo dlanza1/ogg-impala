@@ -70,8 +70,6 @@ public class Batch {
 		}
 		
 		if(controlFile.canDataBeInsertedIntoFinalTable()){
-			if(!stagingHDFSDirectory.isAbsolute())
-				stagingHDFSDirectory = hdfs.resolvePath(stagingHDFSDirectory);
 			
 			createStagingTable.exect();
 			LOG.info("created staging table");

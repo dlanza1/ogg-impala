@@ -99,13 +99,11 @@ public class ImpalaDataLoader {
 			createTargetTable = new Query(createTargetTableQuery_prop, impalaClient);
 			
 			stagingHDFSDirectory = prop.getStagingHDFSDirectory(null, null);
+			// Check if staging directory can be created
+			stagingHDFSDirectory = testStagingDirectory(hdfs, stagingHDFSDirectory);
 			
 			sourceControlFile = prop.getSourceContorlFile(null, null);
 		}
-		
-		// Check if staging directory does not exist
-		// If it does not exist, create and remove it
-		stagingHDFSDirectory = testStagingDirectory(hdfs, stagingHDFSDirectory);
 	
 		LOG.info("query to create staging table set to: " + createStagingTable);
 		LOG.info("query to drop staging table set to: " + dropStagingTable);
@@ -126,6 +124,16 @@ public class ImpalaDataLoader {
 
 		// Configure period of time for checking new data
 		ms_between_batches = prop.getTimeBetweenBatches();
+		
+		// Delete staging table if it exists
+		try{
+			dropStagingTable.exect();
+			LOG.info("deleted staging table");
+		}catch(SQLException e){
+			if(!e.getMessage().contains("Table does not exist:")){
+				throw e;
+			}
+		}
 	}
 
 	private void configureFromDefinitionFile(PropertiesE prop, ImpalaClient impalaClient)
@@ -146,6 +154,8 @@ public class ImpalaDataLoader {
 		// Perform test on staging directory
 		stagingHDFSDirectory = prop.getStagingHDFSDirectory(
 								targetTableDes.getSchemaName(), targetTableDes.getTableName());
+		// Check if staging directory can be created
+		stagingHDFSDirectory = testStagingDirectory(hdfs, stagingHDFSDirectory);
 		
 		QueryBuilder queryBuilder = impalaClient.getQueryBuilder();
 
@@ -256,7 +266,7 @@ public class ImpalaDataLoader {
 		
 		Path stagingDirectory;
 		
-		// If the directory aready exists
+		// If the directory already exists
 		if (hdfs.exists(directory)) {	
 			
 			//Resolve absolute path
@@ -266,22 +276,32 @@ public class ImpalaDataLoader {
 		}else{
 		// else the directory does not exist
 			
-			// create the directory
-			if (!hdfs.mkdirs(directory)) {
-				IllegalStateException e = new IllegalStateException(
-						"target directory could not be created");
-				LOG.error(e.getMessage(), e);
+			// create directory
+			try {
+				if (!hdfs.mkdirs(directory)) {
+					IllegalStateException e = new IllegalStateException(
+							"target directory (" + directory + ") could not be created");
+					LOG.error(e.getMessage(), e);
+					throw e;
+				}
+			} catch (IOException e) {
+				LOG.error("target directory (" + directory + ") could not be created", e);
 				throw e;
 			}
 
 			// resolve absolute path
 			stagingDirectory = hdfs.resolvePath(directory);
 
-			// delete the directory
-			if (!hdfs.delete(directory, true)) {
-				IllegalStateException e = new IllegalStateException(
-						"target directory could not be deleted");
-				LOG.error(e.getMessage(), e);
+			// delete directory
+			try {
+				if (!hdfs.delete(directory, true)) {
+					IllegalStateException e = new IllegalStateException(
+							"target directory (" + directory + ") could not be deleted");
+					LOG.error(e.getMessage(), e);
+					throw e;
+				}
+			} catch (IOException e) {
+				LOG.error("target (" + directory + ") directory could not be deleted", e);
 				throw e;
 			}
 		}

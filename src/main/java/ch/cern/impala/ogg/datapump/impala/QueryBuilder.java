@@ -4,6 +4,8 @@ import java.util.ArrayList;
 
 import org.apache.hadoop.fs.Path;
 
+import com.google.common.base.Preconditions;
+
 import ch.cern.impala.ogg.datapump.impala.descriptors.ColumnDescriptor;
 import ch.cern.impala.ogg.datapump.impala.descriptors.StagingTableDescriptor;
 import ch.cern.impala.ogg.datapump.impala.descriptors.TableDescriptor;
@@ -17,6 +19,9 @@ public class QueryBuilder {
 	}
 
 	public Query createExternalTable(TableDescriptor des, Path dir) {
+		Preconditions.checkArgument(dir.isAbsolute(), 
+				"an external table must be created with an absolute path");
+		
 		StringBuilder stmnt = new StringBuilder();
 		
 		stmnt.append("CREATE EXTERNAL TABLE ");
