@@ -15,6 +15,8 @@ import ch.cern.impala.ogg.datapump.impala.descriptors.PartitioningColumnDescript
 import ch.cern.impala.ogg.datapump.oracle.ControlFile;
 import ch.cern.impala.ogg.datapump.oracle.FileFormatException;
 
+import com.google.common.base.Preconditions;
+
 public class PropertiesE extends Properties {
 	private static final long serialVersionUID = 3733307414558688437L;
 	
@@ -22,7 +24,7 @@ public class PropertiesE extends Properties {
 
 	public static final String DEFAULT_PROPETIES_FILE = "config.properties";
 	
-	public static final String OGG_DATA_FOLDER = "ogg.data.folder";
+	public static final String OGG_DATA_FOLDERS = "ogg.data.folders";
 	
 	public static final String OGG_CONTROL_FILE_NAME = "ogg.control.file.name";
 	public static final String OGG_DEFINITION_FILE_NAME = "ogg.definition.file.name";
@@ -106,27 +108,26 @@ public class PropertiesE extends Properties {
 
 	}
 
-	public ControlFile getSourceContorlFile(String schema, String table) throws IllegalStateException, IOException {
-		String oggDataFolder_prop = getProperty(OGG_DATA_FOLDER);
+	public LinkedList<ControlFile> getSourceContorlFiles(String schema, String table) 
+			throws IllegalStateException, IOException {
 		
-		if(oggDataFolder_prop == null){
-			String error_message = "the path of the data folder "
-					+ "must be specified by " + OGG_DATA_FOLDER; 
-			
-			LOG.warn(error_message);
-			throw new IllegalStateException(error_message);
-		}
+		LinkedList<String> dataFolders = getSourceLocalDirectories();
 		
 		String sourceControlFile_prop = getProperty(OGG_CONTROL_FILE_NAME);
 		
 		if(sourceControlFile_prop == null){
 			sourceControlFile_prop = schema + "." + table + "control"; 
 			
-			LOG.warn("the name of the control control file was not specified, "
+			LOG.warn("the name of the control filse was not specified, "
 					+ "so the default name will be used (" + sourceControlFile_prop + ")");
 		}
 		
-		return new ControlFile(oggDataFolder_prop + "/" + sourceControlFile_prop);
+		LinkedList<ControlFile> controlFiles = new LinkedList<ControlFile>();
+		for (String dataFolder : dataFolders) {
+			controlFiles.add(new ControlFile(dataFolder + "/" + sourceControlFile_prop));
+		}
+		
+		return controlFiles;
 	}
 	
 	public File getDefinitionFile() throws IllegalStateException, IOException {
@@ -161,8 +162,17 @@ public class PropertiesE extends Properties {
 				DEFAULT_STAGING_HDFS_DIRECTORY + schema + "/" + table));
 	}
 
-	public String getSourceLocalDirectory() {
-		return getProperty(OGG_DATA_FOLDER);
+	public LinkedList<String> getSourceLocalDirectories() {
+		
+		String prop = getProperty(OGG_DATA_FOLDERS);
+		Preconditions.checkNotNull(prop, "the property " + OGG_DATA_FOLDERS + " must be specified");
+		
+		String[] values = prop.replaceAll("\\s+","").split(",");;
+		LinkedList<String> dirs = new LinkedList<String>();
+		for (String val : values)
+			dirs.add(val);
+		
+		return dirs;
 	}
 
 	public String getImpalaHost() {

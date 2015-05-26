@@ -11,7 +11,7 @@ import org.apache.commons.io.FileUtils;
 
 public class WriteSampleFiles {
 	
-	private static File dataDirectory = new File("output");
+	private static File dataDirectory = new File("output3");
 
 	private static File controlFile = new File(dataDirectory.getAbsolutePath() + "/control-file.control");
 	

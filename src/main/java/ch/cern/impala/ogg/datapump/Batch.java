@@ -2,7 +2,7 @@ package ch.cern.impala.ogg.datapump;
 
 import java.io.IOException;
 import java.sql.SQLException;
-import java.util.List;
+import java.util.LinkedList;
 
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -21,9 +21,9 @@ public class Batch {
 	private FileSystem hdfs;
 	
 	/**
-	 * Source data control file
+	 * Source control files
 	 */
-	private ControlFile controlFile;
+	private LinkedList<ControlFile> controlFiles;
 	
 	//Staging data
 	private Path stagingHDFSDirectory;
@@ -32,11 +32,11 @@ public class Batch {
 	private Query createStagingTable;
 	private Query insertInto;
 
-	private List<String> dataFiles;
+	private LinkedList<String> dataFiles;
 
 	public Batch(FileSystem local, 
 			FileSystem hdfs, 
-			ControlFile controlFile, 
+			LinkedList<ControlFile> controlFiles, 
 			Path stagingHDFSDirectory,
 			Query dropStagingTable,
 			Query createStagingTable,
@@ -44,14 +44,17 @@ public class Batch {
 			throws IOException, ClassNotFoundException, SQLException {
 		this.local = local;
 		this.hdfs = hdfs;
-		this.controlFile = controlFile;
+		this.controlFiles = controlFiles;
 		this.stagingHDFSDirectory = stagingHDFSDirectory;
 		this.dropStagingTable = dropStagingTable;
 		this.createStagingTable = createStagingTable;
 		this.insertInto = insertInto;
 		
 		// Get data file names
-		dataFiles = controlFile.getDataFileNames();
+		dataFiles = new LinkedList<String>();
+		for (ControlFile controlFile : controlFiles) {
+			dataFiles.addAll(controlFile.getDataFileNames());
+		}
 	}
 
 	public void start() throws Exception {
@@ -111,16 +114,20 @@ public class Batch {
 	 */
 	public void clean() throws Exception {
 
-		//Delete control file
-		try{
-			controlFile.delete();
-		}catch(Exception e){
-			LOG.error("the control file " + controlFile + " could not be deleted", e);
-			LOG.error("the control file \"" + controlFile + "\" must be deleted before"
-					+ " starting again the loader, otherwise data will be "
-					+ " reinserted into final table (duplicates)");
-			
-			throw e;
+		//Delete control files
+		for (ControlFile controlFile : controlFiles) {
+			try{
+				controlFile.delete();
+				
+				LOG.debug("control file " + controlFile + " has been deleted");
+			}catch(Exception e){
+				LOG.error("the control file " + controlFile + " could not be deleted", e);
+				LOG.error("the control file \"" + controlFile + "\" must be deleted before"
+						+ " starting again the loader, otherwise data will be "
+						+ " reinserted into final table (duplicates)");
+				
+				throw e;
+			}
 		}
 		
 		//Delete all local data files
