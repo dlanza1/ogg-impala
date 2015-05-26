@@ -28,18 +28,49 @@ public class ImpalaDataLoader {
 	 */
 	private static final long MAX_MS_BETWEEN_BATCHES = 10 * 60 * 1000;
 
+	/**
+	 * Milliseconds between batches
+	 */
 	private long ms_between_batches;
 
+	/**
+	 * Control file which contains the name of the data diles
+	 */
 	private ControlFile sourceControlFile;
 
+	/**
+	 * Local file system
+	 */
 	private LocalFileSystem local;
+	
+	/**
+	 * Hadoop Distributed File System
+	 */
 	private FileSystem hdfs;
 
+	/**
+	 * Staging directory where the data will be stored temporally
+	 */
 	private Path stagingHDFSDirectory;
 
+	/**
+	 * Query to create the staging (temporal) table
+	 */
 	private Query createStagingTable;
+	
+	/**
+	 * Query to delete the staging table
+	 */
 	private Query dropStagingTable;
+	
+	/**
+	 * Query to insert staging data into final table
+	 */
 	private Query insertInto;
+	
+	/**
+	 * Query to create the final table
+	 */
 	private Query createTargetTable;
 
 	public ImpalaDataLoader(PropertiesE prop) throws Exception {
@@ -54,7 +85,6 @@ public class ImpalaDataLoader {
 		// Get Impala client
 		ImpalaClient impalaClient = new ImpalaClient(prop.getImpalaHost(), prop.getImpalaPort());
 		
-		
 		// We can run the loader either configuring the definition file path 
 		// or configuring all the necessary queries 
 		
@@ -65,44 +95,9 @@ public class ImpalaDataLoader {
 			
 			configureFromDefinitionFile(prop, impalaClient);
 		}else{
-			// Else, we check all configuration needed and then create
-			// the queries, the path to the staging directory and the control file
 			
-			String createStagingTableQuery_prop = prop.getCreateStagingTableQuery();
-			String dropStagingTableQuery_prop = prop.getDropStagingTableQuery();
-			String insertIntoQuery_prop = prop.getInsertIntoQuery();
-			String createTargetTableQuery_prop = prop.getCreateTableQuery();
-			
-			if(createStagingTableQuery_prop == null
-					|| dropStagingTableQuery_prop == null
-					|| insertIntoQuery_prop == null
-					|| createTargetTableQuery_prop == null
-					|| prop.containsKey(PropertiesE.IMPALA_STAGING_DIRECTORY) == false
-					|| prop.containsKey(PropertiesE.OGG_CONTROL_FILE_NAME) == false){
-				
-				IllegalStateException e = new IllegalStateException("the loader could be initialized"
-						+ " because the configuration is not valid. You must specify either the "
-						+ "definition file path, or the paameters for the four queries, the staging "
-						+ "directory and the name of the control file.");
-				
-				LOG.error(e.getMessage(), e);
-				throw e;
-			}
-			
-			// Get query for creating staging table
-			createStagingTable = new Query(createStagingTableQuery_prop, impalaClient);
-			// Get query for dropping staging table
-			dropStagingTable = new Query(dropStagingTableQuery_prop, impalaClient);
-			// Get query for importing data from staging table to final table
-			insertInto = new Query(insertIntoQuery_prop, impalaClient);
-			// Get query for creating target table
-			createTargetTable = new Query(createTargetTableQuery_prop, impalaClient);
-			
-			stagingHDFSDirectory = prop.getStagingHDFSDirectory(null, null);
-			// Check if staging directory can be created
-			stagingHDFSDirectory = testStagingDirectory(hdfs, stagingHDFSDirectory);
-			
-			sourceControlFile = prop.getSourceContorlFile(null, null);
+			// Otherwise, extract all the queries from the configuration
+			configureWithputDefinitionFile(prop, impalaClient);
 		}
 	
 		LOG.info("query to create staging table set to: " + createStagingTable);
@@ -204,6 +199,48 @@ public class ImpalaDataLoader {
 														stagingTableDes.getTableName());
 	}
 
+	private void configureWithputDefinitionFile(PropertiesE prop, ImpalaClient impalaClient) throws IOException {
+
+		// Check all configuration needed
+		String createStagingTableQuery_prop = prop.getCreateStagingTableQuery();
+		String dropStagingTableQuery_prop = prop.getDropStagingTableQuery();
+		String insertIntoQuery_prop = prop.getInsertIntoQuery();
+		String createTargetTableQuery_prop = prop.getCreateTableQuery();
+
+		if (createStagingTableQuery_prop == null
+				|| dropStagingTableQuery_prop == null
+				|| insertIntoQuery_prop == null
+				|| createTargetTableQuery_prop == null
+				|| prop.containsKey(PropertiesE.OGG_CONTROL_FILE_NAME) == false) {
+
+			IllegalStateException e = new IllegalStateException(
+					"the loader could be initialized"
+							+ " because the configuration is not valid. You must specify either the"
+							+ " definition file path, or the paameters for the four queries"
+							+ " and the name of the control file.");
+
+			LOG.error(e.getMessage(), e);
+			throw e;
+		}
+
+		// Get query for creating staging table
+		createStagingTable = new Query(createStagingTableQuery_prop,impalaClient);
+		// Get query for dropping staging table
+		dropStagingTable = new Query(dropStagingTableQuery_prop, impalaClient);
+		// Get query for importing data from staging table to final table
+		insertInto = new Query(insertIntoQuery_prop, impalaClient);
+		// Get query for creating target table
+		createTargetTable = new Query(createTargetTableQuery_prop, impalaClient);
+
+		// Get staging directory
+		stagingHDFSDirectory = prop.getStagingHDFSDirectory("", "");
+		// Check if staging directory can be created
+		stagingHDFSDirectory = testStagingDirectory(hdfs, stagingHDFSDirectory);
+
+		// Get control file
+		sourceControlFile = prop.getSourceContorlFile(null, null);
+	}
+	
 	private void start() throws Exception {
 		
 		// Check periodically for new data
@@ -266,16 +303,9 @@ public class ImpalaDataLoader {
 		
 		Path stagingDirectory;
 		
-		// If the directory already exists
-		if (hdfs.exists(directory)) {	
-			
-			//Resolve absolute path
-			stagingDirectory = hdfs.resolvePath(directory);
-			
-			LOG.warn("the staging directory " + stagingDirectory + " already exists");
-		}else{
-		// else the directory does not exist
-			
+		// If the directory does not exist
+		if (!hdfs.exists(directory)) {	
+
 			// create directory
 			try {
 				if (!hdfs.mkdirs(directory)) {
@@ -288,22 +318,22 @@ public class ImpalaDataLoader {
 				LOG.error("target directory (" + directory + ") could not be created", e);
 				throw e;
 			}
+		}
 
-			// resolve absolute path
-			stagingDirectory = hdfs.resolvePath(directory);
+		// resolve absolute path
+		stagingDirectory = hdfs.resolvePath(directory);
 
-			// delete directory
-			try {
-				if (!hdfs.delete(directory, true)) {
-					IllegalStateException e = new IllegalStateException(
-							"target directory (" + directory + ") could not be deleted");
-					LOG.error(e.getMessage(), e);
-					throw e;
-				}
-			} catch (IOException e) {
-				LOG.error("target (" + directory + ") directory could not be deleted", e);
+		// delete directory
+		try {
+			if (!hdfs.delete(directory, true)) {
+				IllegalStateException e = new IllegalStateException(
+						"target directory (" + directory + ") could not be deleted");
+				LOG.error(e.getMessage(), e);
 				throw e;
 			}
+		} catch (IOException e) {
+			LOG.error("target (" + directory + ") directory could not be deleted", e);
+			throw e;
 		}
 
 		return stagingDirectory;

@@ -23,11 +23,7 @@ public class Query {
 	}
 
 	public void exect() throws SQLException {
-		LOG.trace("executing query: " + this);
-		
 		client.exect(this);
-		
-		LOG.debug("executed query: " + this);
 	}
 	
 	@Override

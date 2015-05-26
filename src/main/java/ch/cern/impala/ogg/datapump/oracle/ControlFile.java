@@ -3,7 +3,6 @@ package ch.cern.impala.ogg.datapump.oracle;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.LinkedList;
@@ -11,8 +10,6 @@ import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Preconditions;
 
 public class ControlFile extends File{
 	private static final long serialVersionUID = 1L;
@@ -22,72 +19,56 @@ public class ControlFile extends File{
 	/**
 	 * Extension of the control file to process
 	 */
-	private static final String EXT_CONTROL_FILE_TO_PROCESS = ".to_process";
-	
-	public static final CharSequence FILES_LOADED_INTO_HDFS_LABEL = "FILES LOADED INTO HDFS";
-
-	public static final CharSequence DATA_INSERTED_INTO_FINAL_TABLE_LABEL = "DATA INSERTED INTO FINAL TABLE";
-	
-	private enum State {NOT_INITIALIZED, TO_PROCESS, LOADED_INTO_HDFS, INSERTED_INTO_FINAL_TABLE};
-	
-	private State state = State.NOT_INITIALIZED;
+	private static final String EXT_CONTROL_FILE_TO_PROCESS = ".processing";
 	
 	public ControlFile(String pathname) throws IOException {
 		super(pathname);
 	}
 
-	private ControlFile setState() throws IOException {
-		Preconditions.checkArgument(state == State.NOT_INITIALIZED);
-		
-		BufferedReader br = new BufferedReader(new FileReader(this));
-		
-		String line = br.readLine();
-		
-		if(line.equals(FILES_LOADED_INTO_HDFS_LABEL))
-			state = State.LOADED_INTO_HDFS;
-		else if(line.equals(DATA_INSERTED_INTO_FINAL_TABLE_LABEL))
-			state = State.INSERTED_INTO_FINAL_TABLE;
-		else
-			state = State.TO_PROCESS;
-		
-		try {
-			br.close();
-		} catch (IOException e) {}
-		
-		return this;
-	}
-
+	/**
+	 * Get a copy (with a new name extension) of this control file
+	 * 
+	 * @return Copy of this control file
+	 * 			- If this file does not exist, return null
+	 * 			- If the copy already exists, return old copy
+	 * @throws IOException
+	 */
 	public ControlFile getControlFileToProcess() throws IOException {
-		Preconditions.checkArgument(state == State.NOT_INITIALIZED);
 		
-		ControlFile control_file_to_process = new ControlFile(
+		ControlFile controlFileToProcess = new ControlFile(
 				getAbsolutePath().concat(EXT_CONTROL_FILE_TO_PROCESS));
 		
 		//If already exists, there was an error during previous process or it was stopped
-		if(control_file_to_process.exists()){
+		//then recover from the old one
+		if(controlFileToProcess.exists()){
 			LOG.warn("recovering from previous control file to process");
 			
-			return control_file_to_process.setState();
+			return controlFileToProcess;
 		}
 		
+		//If tthe control file does not exist, can not be created a control file to process
 		if(!exists())
 			return null;
 	
 		//Rename this control file
-		if(!renameTo(control_file_to_process)){
-			LOG.error("the source control file " + this + " could not be renamed");
-	
-			throw new IOException("the source control file " + this + " could not be renamed");
+		if(!renameTo(controlFileToProcess)){
+			IOException e = new IOException("the source control file " + this + " could not be renamed");
+			LOG.error(e.getMessage(), e);
+			throw e;
 		}else{
-			LOG.debug("the control file " + this + " has been renamed to " + control_file_to_process);
+			LOG.debug("the control file " + this + " has been renamed to " + controlFileToProcess);
 		}
 		
-		return control_file_to_process.setState();
+		return controlFileToProcess;
 	}
 
+	/**
+	 * Get the list of data file names
+	 * 
+	 * @return
+	 * @throws IOException
+	 */
 	public List<String> getDataFileNames() throws IOException {
-		Preconditions.checkArgument(state == State.TO_PROCESS);
-		
 		BufferedReader br = new BufferedReader(new FileReader(this));
 		
 		LinkedList<String> files = new LinkedList<String>();
@@ -104,47 +85,6 @@ public class ControlFile extends File{
         }catch(Exception e){}
         
         return files;
-	}
-
-	public void filesLoadedIntoHDFS() throws IOException {
-		Preconditions.checkArgument(state == State.TO_PROCESS);
-		
-		try {
-			FileWriter fw = new FileWriter(this);
-			fw.append(FILES_LOADED_INTO_HDFS_LABEL);
-			fw.close();
-		} catch (IOException e) {
-			LOG.error("the control file could not be mark as files loaded into HDFS", e);
-			
-			throw e;
-		}
-		
-		state = State.LOADED_INTO_HDFS;
-	}
-
-	public void markAsDataInsertedIntoFinalTable() throws IOException {
-		Preconditions.checkArgument(state == State.LOADED_INTO_HDFS);
-		
-		try {
-			FileWriter fw = new FileWriter(this);
-			fw.append(DATA_INSERTED_INTO_FINAL_TABLE_LABEL);
-			fw.close();
-		} catch (IOException e) {
-			LOG.error("FATAL: the control file could not be mark as data inserted into final table. "
-					+ " IF YOU RUN THE LOADER, THE STAGING DATA WILL BE RE-INSERTED.", e);
-			
-			throw e;
-		}
-		
-		state = State.INSERTED_INTO_FINAL_TABLE;
-	}
-
-	public boolean canDataBeLoadedIntoHDFS() throws IOException {
-		return state == State.TO_PROCESS;
-	}
-	
-	public boolean canDataBeInsertedIntoFinalTable() throws IOException {
-		return state == State.LOADED_INTO_HDFS;
 	}
 
 }

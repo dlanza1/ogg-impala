@@ -25,13 +25,13 @@ public class ImpalaClient {
 
 		try {
 			con = DriverManager.getConnection(connection_url);
+			
+			LOG.debug("Impala client has been established (" + host + ":" + port + ")");
 		} catch (SQLException e) {
-			LOG.error(e.getMessage(), e);
+			LOG.error("the connection with the Impala daemon could not be established", e);
 			
 			throw e;
 		}	
-		
-		LOG.debug("Impala client has been initialized (" + host + ":" + port + ")");
 		
 		queryBuilder = new QueryBuilder(this);
 	}
@@ -41,9 +41,19 @@ public class ImpalaClient {
 	}
 	
 	public void exect(String statement) throws SQLException{
-		Statement stmt = con.createStatement();
-		stmt.execute(statement);
-		stmt.close();
+		LOG.debug("executing query: " + statement);
+		
+		Statement stmt;
+		try {
+			stmt = con.createStatement();
+			stmt.execute(statement);
+			stmt.close();
+			
+			LOG.debug("executed query: " + statement);
+		} catch (SQLException e) {
+			LOG.error("the following query could not be executed: " + statement, e);
+			throw e;
+		}
 	}
 
 	public void close(){

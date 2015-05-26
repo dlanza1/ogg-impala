@@ -32,7 +32,7 @@ public class Batch {
 	private Query createStagingTable;
 	private Query insertInto;
 
-	private List<String> datafiles;
+	private List<String> dataFiles;
 
 	public Batch(FileSystem local, 
 			FileSystem hdfs, 
@@ -49,43 +49,38 @@ public class Batch {
 		this.dropStagingTable = dropStagingTable;
 		this.createStagingTable = createStagingTable;
 		this.insertInto = insertInto;
+		
+		// Get data file names
+		dataFiles = controlFile.getDataFileNames();
 	}
 
 	public void start() throws Exception {
-		
-		if(controlFile.canDataBeLoadedIntoHDFS()){
-			datafiles = controlFile.getDataFileNames();
 			
-			//Create staging directory
-			if(!hdfs.mkdirs(stagingHDFSDirectory)){
-				IllegalStateException e = new IllegalStateException(
-								"staging directory could not be created");
-				LOG.error(e.getMessage(), e);
-				throw e;
-			}
-		
-			moveDataFilesToHDFS(local, hdfs, datafiles);
-			
-			controlFile.filesLoadedIntoHDFS();
+		// Create staging directory
+		if(!hdfs.mkdirs(stagingHDFSDirectory)){
+			IllegalStateException e = new IllegalStateException(
+							"staging directory could not be created");
+			LOG.error(e.getMessage(), e);
+			throw e;
 		}
 		
-		if(controlFile.canDataBeInsertedIntoFinalTable()){
+		// Copy data files to HDFS
+		copyDataFilesToHDFS(local, hdfs);
+		
+		// Create staging table
+		createStagingTable.exect();
+		LOG.info("created staging table");
 			
-			createStagingTable.exect();
-			LOG.info("created staging table");
-			
-			insertInto.exect();
-			LOG.info("copied data from staging table to final table");
-			
-			controlFile.markAsDataInsertedIntoFinalTable();
-		}
+		// Insert staging table data into final table
+		insertInto.exect();
+		LOG.info("copied data from staging table to final table");
 	}
 
-	private void moveDataFilesToHDFS(FileSystem local, FileSystem hdfs, List<String> files) throws Exception {
+	private void copyDataFilesToHDFS(FileSystem local, FileSystem hdfs) throws Exception {
 		
-		//Copy all files
+		//Copy all files into HDFS
 		long totalSize = 0;
-		for (String file : files) {
+		for (String file : dataFiles) {
 			Path path = new Path(file);
 			
 			long length = 0;
@@ -99,16 +94,37 @@ public class Batch {
 				totalSize += length;
 				
 				LOG.debug("the local file " + path + " (" + length 
-						+ " bytes) has been moved to " + stagingHDFSDirectory);
+						+ " bytes) has been copied to " + stagingHDFSDirectory);
 			}catch(Exception e){
-				LOG.error("the local file " + path + " could not be copied to HDFS");
-				
+				LOG.error("the local file " + path + " could not be copied to HDFS", e);
 				throw e;
 			}
 		}
 		
-		//Delete all local copied data files
-		for (String file : files) {
+		LOG.info(dataFiles.size() + " files " + "("+ totalSize + " bytes) have been copied to HDFS");
+	}
+
+	/**
+	 * Remove control file and staging data
+	 * 
+	 * @throws Exception
+	 */
+	public void clean() throws Exception {
+
+		//Delete control file
+		try{
+			controlFile.delete();
+		}catch(Exception e){
+			LOG.error("the control file " + controlFile + " could not be deleted", e);
+			LOG.error("the control file \"" + controlFile + "\" must be deleted before"
+					+ " starting again the loader, otherwise data will be "
+					+ " reinserted into final table (duplicates)");
+			
+			throw e;
+		}
+		
+		//Delete all local data files
+		for (String file : dataFiles) {
 			Path path = new Path(file);
 			
 			if(local.delete(path, true)){
@@ -118,36 +134,28 @@ public class Batch {
 			}
 		}
 		
-		LOG.info(files.size() + " files " + "("+ totalSize + " bytes) have been moved to HDFS");
-	}
-
-	public void clean() throws Exception {
-
-		//Delete control file
-		try{
-			controlFile.delete();
-		}catch(Exception e){
-			LOG.error("the control file " + controlFile + " could not be deleted", e);
-			
-			throw e;
-		}
-		
-		//Remove staging data in Impala and HDFS
+		//Remove Impala staging table
 		try{
 			dropStagingTable.exect();
+			
+			LOG.debug("Impala staging table has been dropped");
 		}catch(SQLException e){
 			LOG.error("the staging table could not be deleted", e);
 			
 			throw e;
 		}
+		
+		//Remove staging data stored in HDFS
 		try{
 			hdfs.delete(stagingHDFSDirectory, true);
+			
+			LOG.debug("Staging directory in HDFS (" + stagingHDFSDirectory + ") has been removed");
 		}catch(Exception e){
 			LOG.error("the HDFS directory " + stagingHDFSDirectory + " which contains "
 					+ "the data of the staging table could not be deleted", e);
-			
 			throw e;
 		}
+		
 		LOG.info("deleted staging data");
 	}
 
