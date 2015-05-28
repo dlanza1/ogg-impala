@@ -17,25 +17,29 @@ public class ImpalaClient {
 	private Connection con;
 	
 	private QueryBuilder queryBuilder;
+
+	private String connectionString;
 	
-	public ImpalaClient(String host, int port) throws ClassNotFoundException, SQLException{
-		String connection_url = "jdbc:hive2://" + host + ':' + port + "/;auth=noSasl";
+	public ImpalaClient(String host, int port) throws ClassNotFoundException{
+		connectionString = "jdbc:hive2://" + host + ':' + port + "/;auth=noSasl";
 
 		Class.forName(JDBC_DRIVER_NAME);
-
+		
+		queryBuilder = new QueryBuilder(this);
+	}
+	
+	public void connect() throws SQLException {
 		try {
-			con = DriverManager.getConnection(connection_url);
+			con = DriverManager.getConnection(connectionString);
 			
-			LOG.debug("Impala client has been established (" + host + ":" + port + ")");
+			LOG.debug("Impala client has been initialized (" + connectionString + ")");
 		} catch (SQLException e) {
 			LOG.error("the connection with the Impala daemon could not be established", e);
 			
 			throw e;
 		}	
-		
-		queryBuilder = new QueryBuilder(this);
 	}
-	
+
 	public void exect(Query query) throws SQLException{
 		exect(query.getStatement());
 	}

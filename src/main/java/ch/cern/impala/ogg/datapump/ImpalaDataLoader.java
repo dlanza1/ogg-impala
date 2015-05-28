@@ -1,5 +1,6 @@
 package ch.cern.impala.ogg.datapump;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.LinkedList;
@@ -74,7 +75,10 @@ public class ImpalaDataLoader {
 	 */
 	private Query createTargetTable;
 
-	public ImpalaDataLoader(PropertiesE prop) throws Exception {
+	private ImpalaClient impalaClient;
+
+	public ImpalaDataLoader(PropertiesE prop) 
+			throws IOException, IllegalStateException, CloneNotSupportedException, ClassNotFoundException {
 		
 		// Get file systems
 		Configuration conf = new Configuration();
@@ -84,7 +88,7 @@ public class ImpalaDataLoader {
 		local = FileSystem.getLocal(conf);
 		
 		// Get Impala client
-		ImpalaClient impalaClient = new ImpalaClient(prop.getImpalaHost(), prop.getImpalaPort());
+		impalaClient = new ImpalaClient(prop.getImpalaHost(), prop.getImpalaPort());
 		
 		// We can run the loader either configuring the definition file path 
 		// or configuring all the necessary queries 
@@ -98,7 +102,7 @@ public class ImpalaDataLoader {
 		}else{
 			
 			// Otherwise, extract all the queries from the configuration
-			configureWithputDefinitionFile(prop, impalaClient);
+			configureWithoutDefinitionFile(prop, impalaClient);
 		}
 	
 		LOG.info("query to create staging table set to: " + createStagingTable);
@@ -106,30 +110,9 @@ public class ImpalaDataLoader {
 		LOG.info("insert query set to: " + insertInto);
 		LOG.info("create target table query set to: " + createTargetTable);
 		LOG.info("reading control data from " + sourceControlFiles);
-
-		// Create target table if it does not exist
-		try {
-			createTargetTable.exect();
-			LOG.info("created final table");
-		} catch (SQLException e) {
-			if (!e.getMessage().contains("Table already exists:")) {
-				LOG.error("final table could not be created", e);
-				throw e;
-			}
-		}
-
+		
 		// Configure period of time for checking new data
 		ms_between_batches = prop.getTimeBetweenBatches();
-		
-		// Delete staging table if it exists
-		try{
-			dropStagingTable.exect();
-			LOG.info("deleted staging table");
-		}catch(SQLException e){
-			if(!e.getMessage().contains("Table does not exist:")){
-				throw e;
-			}
-		}
 	}
 
 	private void configureFromDefinitionFile(PropertiesE prop, ImpalaClient impalaClient)
@@ -150,8 +133,9 @@ public class ImpalaDataLoader {
 		// Perform test on staging directory
 		stagingHDFSDirectory = prop.getStagingHDFSDirectory(
 								targetTableDes.getSchemaName(), targetTableDes.getTableName());
-		// Check if staging directory can be created
-		stagingHDFSDirectory = testStagingDirectory(hdfs, stagingHDFSDirectory);
+		// Get absolute path
+		if(!stagingHDFSDirectory.isAbsolute())
+			stagingHDFSDirectory = testStagingDirectory(hdfs, stagingHDFSDirectory);
 		
 		QueryBuilder queryBuilder = impalaClient.getQueryBuilder();
 
@@ -200,7 +184,7 @@ public class ImpalaDataLoader {
 														stagingTableDes.getTableName());
 	}
 
-	private void configureWithputDefinitionFile(PropertiesE prop, ImpalaClient impalaClient) throws IOException {
+	private void configureWithoutDefinitionFile(PropertiesE prop, ImpalaClient impalaClient) throws IOException {
 
 		// Check all configuration needed
 		String createStagingTableQuery_prop = prop.getCreateStagingTableQuery();
@@ -235,14 +219,39 @@ public class ImpalaDataLoader {
 
 		// Get staging directory
 		stagingHDFSDirectory = prop.getStagingHDFSDirectory("", "");
-		// Check if staging directory can be created
-		stagingHDFSDirectory = testStagingDirectory(hdfs, stagingHDFSDirectory);
 
 		// Get control file
 		sourceControlFiles = prop.getSourceContorlFiles(null, null);
 	}
 	
 	private void start() throws Exception {
+		
+		// Get absolute path, test it and delete it
+		stagingHDFSDirectory = testStagingDirectory(hdfs, stagingHDFSDirectory);
+		
+		// Get Impala connected
+		impalaClient.connect();
+		
+		// Create target table if it does not exist
+		try {
+			createTargetTable.exect();
+			LOG.info("created final table");
+		} catch (SQLException e) {			
+			if (!e.getMessage().contains("Table already exists:")) {
+				LOG.error("final table could not be created", e);
+				throw e;
+			}
+		}
+		
+		// Delete staging table if it exists
+		try{
+			dropStagingTable.exect();
+			LOG.info("deleted staging table");
+		}catch(SQLException e){
+			if(!e.getMessage().contains("Table does not exist:")){
+				throw e;
+			}
+		}
 		
 		// Check periodically for new data
 		while (true) {
@@ -346,7 +355,7 @@ public class ImpalaDataLoader {
 		return stagingDirectory;
 	}
 
-	public static void main(String[] args) throws Exception {
+	public static void main(String[] args) throws Exception{
 		String prop_file = args == null || args.length != 1 || args[0] == null ? 
 				PropertiesE.DEFAULT_PROPETIES_FILE : args[0];
 		
@@ -357,6 +366,25 @@ public class ImpalaDataLoader {
 		
 		//Create and start loader
 		ImpalaDataLoader loader = new ImpalaDataLoader(prop);
-		loader.start();
+		
+		while(true){
+			try {
+				loader.start();
+			} catch (Exception e) {
+				
+				// Depending of the problem we should start again 
+				// the loader (default behaviour) or finish the execution
+				
+				if (e instanceof NullPointerException
+						|| e instanceof FileNotFoundException) {
+					throw e;
+				}
+				
+				LOG.error("there was an error in the current batch. Waiting 10 seconds before restarting the loader. Cause of error:", e);
+				try{
+					Thread.sleep(10000);
+				}catch(Exception eSleep){}
+			}
+		}
 	}
 }
