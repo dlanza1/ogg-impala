@@ -4,6 +4,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.LinkedList;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -26,14 +27,9 @@ public class ImpalaDataLoader {
 	final private static Logger LOG = LoggerFactory.getLogger(ImpalaDataLoader.class);
 
 	/**
-	 * Maximum milliseconds between batches
-	 */
-	private static final long MAX_MS_BETWEEN_BATCHES = 10 * 60 * 1000;
-
-	/**
 	 * Milliseconds between batches
 	 */
-	private long ms_between_batches;
+	private long ms_between_batches;	
 
 	/**
 	 * Control files which contains the name of the data files
@@ -113,6 +109,7 @@ public class ImpalaDataLoader {
 		
 		// Configure period of time for checking new data
 		ms_between_batches = prop.getTimeBetweenBatches();
+		
 	}
 
 	private void configureFromDefinitionFile(PropertiesE prop, ImpalaClient impalaClient)
@@ -282,29 +279,23 @@ public class ImpalaDataLoader {
 				LOG.info("there is no data to process");
 			}
 
-			waitForNextBatch(startTime, ms_between_batches);
+			waitForNextBatch(startTime);
 		}
 	}
-
-	private void waitForNextBatch(long startTime, long ms_between_batches) {
+	
+	private void waitForNextBatch(long startTime) {
 		long timeDiff = System.currentTimeMillis() - startTime;
 
-		long waitTime = Math.min(ms_between_batches - timeDiff,
-				MAX_MS_BETWEEN_BATCHES - timeDiff);
+		long leftTime = ms_between_batches - timeDiff;
+		
+		if(leftTime < 0)
+			return;
 
-		LOG.info("waiting " + (waitTime / 1000) + " seconds...");
+		LOG.info("waiting " + (leftTime / 1000) + " seconds...");
 
-		while (timeDiff < ms_between_batches) {
-			if (timeDiff > MAX_MS_BETWEEN_BATCHES) {
-				LOG.warn("the maximun time between batches ("
-						+ (ms_between_batches / 1000)
-						+ " seconds) has been achieved.");
-
-				return;
-			}
-
-			timeDiff = System.currentTimeMillis() - startTime;
-		}
+		try {
+			TimeUnit.MILLISECONDS.sleep(leftTime);
+		} catch (InterruptedException e) {}
 	}
 
 	/**
@@ -367,6 +358,9 @@ public class ImpalaDataLoader {
 		//Create and start loader
 		ImpalaDataLoader loader = new ImpalaDataLoader(prop);
 		
+		// Configure period of time to wait in case of failure
+		long ms_after_failure = prop.getTimeAfterFailure();
+		
 		while(true){
 			try {
 				loader.start();
@@ -380,11 +374,14 @@ public class ImpalaDataLoader {
 					throw e;
 				}
 				
-				LOG.error("there was an error in the current batch. Waiting 10 seconds before restarting the loader. Cause of error:", e);
-				try{
-					Thread.sleep(10000);
-				}catch(Exception eSleep){}
+				LOG.error("there was an error in the current batch. "
+						+ "Waiting " + (ms_after_failure / 1000) + " seconds before restarting the loader. "
+						+ "Cause of error:", e);
+				try {
+					TimeUnit.MILLISECONDS.sleep(ms_after_failure);
+				} catch (InterruptedException eSleep) {}
 			}
 		}
 	}
+	
 }

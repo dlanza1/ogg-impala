@@ -24,15 +24,18 @@ public class PropertiesE extends Properties {
 
 	public static final String DEFAULT_PROPETIES_FILE = "config.properties";
 	
-	public static final String OGG_DATA_FOLDERS = "ogg.data.folders";
+	private static final String OGG_DATA_FOLDERS = "ogg.data.folders";
 	
 	public static final String OGG_CONTROL_FILE_NAME = "ogg.control.file.name";
 	public static final String OGG_DEFINITION_FILE_NAME = "ogg.definition.file.name";
 
-	public static final String SECONDS_BETWEEN_BATCHES = "batch.between.sec";
+	private static final String SECONDS_BETWEEN_BATCHES = "batch.between.sec";
 	private static final int DEFAULT_SECONDS_BETWEEN_BATCHES = 30;
+	
+	private static final String SECONDS_AFTER_FAILURE = "loader.failure.wait";
+	private static final int DEFAULT_SECONDS_AFTER_FAILURE = 60;
 
-	public static final String IMPALA_STAGING_DIRECTORY = "impala.staging.table.directory";
+	private static final String IMPALA_STAGING_DIRECTORY = "impala.staging.table.directory";
 	private static final String DEFAULT_STAGING_HDFS_DIRECTORY = "ogg/staging/";
 	
 	private static final String IMPALA_HOST = "impala.host";
@@ -145,12 +148,34 @@ public class PropertiesE extends Properties {
 		return new File(sourceControlFile_prop);
 	}
 
+	/**
+	 * Get the time in milliseconds between batches
+	 * 
+	 * @return Time in milliseconds between batches
+	 */
 	public long getTimeBetweenBatches() {
 		int seconds_between_batches = DEFAULT_SECONDS_BETWEEN_BATCHES;
 		try{
 			seconds_between_batches = Integer.valueOf(getProperty(SECONDS_BETWEEN_BATCHES));
 		}catch(Exception e){
 			LOG.warn("the number of seconds between batches has been set "
+					+ "to the default value (" + seconds_between_batches + " seconds)");
+		}
+		
+		return seconds_between_batches * 1000;
+	}
+	
+	/**
+	 * Get the time in milliseconds that the loader should wait after a failure
+	 * 
+	 * @return Time in milliseconds after failure
+	 */
+	public long getTimeAfterFailure() {
+		int seconds_between_batches = DEFAULT_SECONDS_AFTER_FAILURE;
+		try{
+			seconds_between_batches = Integer.valueOf(getProperty(SECONDS_AFTER_FAILURE));
+		}catch(Exception e){
+			LOG.warn("the number of seconds after a failure has been set "
 					+ "to the default value (" + seconds_between_batches + " seconds)");
 		}
 		
