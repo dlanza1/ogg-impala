@@ -9,7 +9,6 @@
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 		<hive.version>0.13.1-cdh5.3.3</hive.version>
-		<kitesdk.version>0.15.0-cdh5.3.3</kitesdk.version>
 		<hadoop.version>2.5.0-cdh5.3.3</hadoop.version>
 	</properties>
 
@@ -69,17 +68,7 @@
 			<artifactId>hive-common</artifactId>
 			<version>${hive.version}</version>
 		</dependency>
-
-		<dependency>
-			<groupId>org.kitesdk</groupId>
-			<artifactId>kite-data-core</artifactId>
-			<version>${kitesdk.version}</version>
-		</dependency>
-
-		<!-- <dependency> <groupId>com.oracle</groupId> <artifactId>ogg-java-adapters</artifactId> 
-			<version>11.1.1</version> <scope>system</scope> <systemPath>${project.basedir}/ggjava/ggjava.jar</systemPath> 
-			</dependency> -->
-
+		 
 		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>

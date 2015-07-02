@@ -192,7 +192,7 @@ public class ImpalaDataLoader {
 		if (createStagingTableQuery_prop == null
 				|| dropStagingTableQuery_prop == null
 				|| insertIntoQuery_prop == null
-				|| createTargetTableQuery_prop == null
+				|| createTargetTableQuery_prop == null  //TODO Not neccesary if table already exist
 				|| prop.containsKey(PropertiesE.OGG_CONTROL_FILE_NAME) == false) {
 
 			IllegalStateException e = new IllegalStateException(

@@ -248,14 +248,14 @@ public class PropertiesE extends Properties {
 		
 		if(!containsKey(CUSTOMIZED_COLUMNS_NAMES))
 			return customColumns;
-		
+		//TODO check for new columns
 		String[] names = getProperty(CUSTOMIZED_COLUMNS_NAMES).replaceAll("\\s+","").split(","); 
 		
 		for (String name : names) {
 			String newName = getProperty(COLUMN_PREFIX + name + NAME_SUFFIX);
 			String dataType = getProperty(COLUMN_PREFIX + name + DATATYPE_SUFFIX);
 			String expression = getProperty(COLUMN_PREFIX + name + EXPRESSION_SUFFIX);
-			
+									//TODO sgould be ColumnDescriptor
 			customColumns.put(name, new PartitioningColumnDescriptor(newName, expression, dataType));
 		}
 		
