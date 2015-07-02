@@ -76,7 +76,7 @@ Some parameters are common to both paths:
 
   * ogg.definition.file.name: path to definition file (it must be created when configuring Flat Files Adapter) (mandatory).
   * ogg.data.folders: input data folders paths separated by commas (mandatory).
-  * ogg.control.file.name: path to control file which is generated in each data folder (default: \<SCHEMA\>.\<TABLE\>control).
+  * ogg.control.file.name: path to control file which is generated in each data folder (default with original values: SCHEMA.TABLEcontrol).
 
   * batch.between.sec: in seconds the period of time for checking for new data (default: 30).
   * loader.failure.wait: in case of failure the period of time (in seconds) for trying again (default: 60).
@@ -97,13 +97,13 @@ Each parameter that should be configured is shown below.
 
 The inferred information related with the column can be modified. You need to specify only the parameters related with the information that you want to customize. This customization will be applied in the final Impala table.
 
-  * impala.table.columns.customize: original column name of the columns that you want to customize (below parameters: \<COLUMN_NAME\>).
+  * impala.table.columns.customize: original column name of the columns that you want to customize (below parameters: COLUMN_NAME).
   
 Per specified column in the above parameter, we can set the following parameters.  
   
-  * impala.table.column.\<COLUMN_NAME\>.name: new column name (default: original column name)
-  * impala.table.column.\<COLUMN_NAME\>.datatype: new Impala data type (default: corresponding Impala data type)
-  * impala.table.column.\<COLUMN_NAME\>.expression: Impala expression to be used for generating final value. It should return the final data type (default: cast(\<COLUMN_NAME\> as \<CORRESPONDING_DATA_TYPE\>)).
+  * impala.table.column.COLUMN_NAME.name: new column name (default: original column name)
+  * impala.table.column.COLUMN_NAME.datatype: new Impala data type (default: corresponding Impala data type)
+  * impala.table.column.COLUMN_NAME.expression: Impala expression to be used for generating final value. It should return the final data type (default: cast(COLUMN_NAME as CORRESPONDING_DATA_TYPE)).
   
 If you set a new data type, a new expression that generates this new data type must be configured.
   
@@ -118,8 +118,8 @@ The expression must use original column names of other columns.
 In a similar way that we do with customized columns
 
   * impala.table.partitioning.columns: names separated by commas of partitioning columns
-  * impala.table.partitioning.column.\<PART_COLUMN_NAME\>.datatype: Impala data type
-  * impala.table.partitioning.column.\<PART_COLUMN_NAME\>.expression: Impala expression which generate the value of the partitioning column (should return the specified data type).
+  * impala.table.partitioning.column.PART_COLUMN_NAME.datatype: Impala data type
+  * impala.table.partitioning.column.PART_COLUMN_NAME.expression: Impala expression which generate the value of the partitioning column (should return the specified data type).
 
 ### Path B) Setting queries
 
