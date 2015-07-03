@@ -3,9 +3,8 @@ package ch.cern.impala.ogg.datapump.impala.descriptors;
 
 public class PartitioningColumnDescriptor extends ColumnDescriptor {
 
-	//TODO change arguments order
-	public PartitioningColumnDescriptor(String name, String expression, String dataType) {
-		super(name, expression, dataType);
+	public PartitioningColumnDescriptor(String name, String dataType, String expression) {
+		super(name, dataType, expression);
 	}
 
 	@Override

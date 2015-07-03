@@ -199,6 +199,7 @@ public class TableDescriptor {
 							+ "that exist in the definition file.");
 			
 			ColumnDescriptor customColumn = customColumns.get(customColumnName);
+			//TODO check for null when creating new columns (expression could not be null)
 			
 			// Set custom values
 			ColumnDescriptor columnDef = columns_map.get(customColumnName);
@@ -225,7 +226,7 @@ public class TableDescriptor {
 		
 		for(ColumnDescriptor colDef:columns_list){
 			if(!(colDef instanceof PartitioningColumnDescriptor)){
-				stagingTableDef.addColumnDescriptor(new ColumnDescriptor(colDef.getName(), null, "STRING"));
+				stagingTableDef.addColumnDescriptor(new ColumnDescriptor(colDef.getName(), "STRING", null));
 			}
 		}
 		

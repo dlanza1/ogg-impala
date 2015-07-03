@@ -8,23 +8,36 @@ public class ColumnDescriptor {
 	
 	/**
 	 * Impala format expression which will be used to
-	 * calculate the value of the column
+	 * calculate the value of the column.
 	 */
 	protected String expression;
 	
-	public ColumnDescriptor(String name, String expression, String type) {
+	/**
+	 * Set name, type and expression with argument values.
+	 * 
+	 * @param name
+	 * @param type
+	 * @param expression
+	 */
+	public ColumnDescriptor(String name, String type, String expression) {
 		this.name = name;
 		this.type = type;
 		this.expression = expression;
-		
-		//TODO change arguments order
-		
-		//TODO when type is null, generate expression
 	}
 
+	/**
+	 * Set name and type with argument values.
+	 * 
+	 * Set expression with a casting which use the name 
+	 * and the type.
+	 * 
+	 * @param name
+	 * @param type
+	 */
 	public ColumnDescriptor(String name, String type) {
 		this.name = name;
 		this.type = type;
+		
 		this.expression = "cast(" + name + " as " + type + ")";
 	}
 	
@@ -47,9 +60,6 @@ public class ColumnDescriptor {
 
 	public void setType(String newDataType) {	
 		this.type = newDataType;
-		
-		//Setting type can not generate new cast expression because
-		//name could have been changed
 	}
 
 	public String getType() {
@@ -67,18 +77,34 @@ public class ColumnDescriptor {
 	/**
 	 * Apply a custom definition 
 	 * 
-	 * @param custom
+	 * Column descriptor send as argument should have
+	 * established the attribute which must be updated,
+	 * otherwise they must be null. Exception with
+	 * expression attribute, it follows a special logic:
+	 *  - If new expression is specified (!= null), it is set.
+	 *  - If no new expression is specified (null) and new data type 
+	 *  is specified (!= null), expression is updated with
+	 *  a casting which use old column name and new data type.
+	 * 
+	 * @param custom ColumnDescriptor with new values
 	 */
 	public void applyCustom(ColumnDescriptor custom) {
+		
+		if(custom.getExpression() != null){
+			//If new expression is specified, set new value
+			setExpression(custom.getExpression());
+		}else if(custom.getType() != null){
+			//If no new expression is specified and
+			//new data type is specified, update expression
+			//with old column name and new data type
+			setExpression("cast(" + name + " as " + custom.getType() + ")");
+		}
 		
 		if(custom.getName() != null)
 			setName(custom.getName());
 		
 		if(custom.getType() != null)
 			setType(custom.getType());
-		
-		if(custom.getExpression() != null)
-			setExpression(custom.getExpression());
 	}
 	
 	@Override

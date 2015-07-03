@@ -237,7 +237,7 @@ public class PropertiesE extends Properties {
 				throw fileFormatException;
 			}
 			
-			partColumns.add(new PartitioningColumnDescriptor(name, expression, dataType));
+			partColumns.add(new PartitioningColumnDescriptor(name, dataType, expression));
 		}
 		
 		return partColumns;
@@ -248,15 +248,15 @@ public class PropertiesE extends Properties {
 		
 		if(!containsKey(CUSTOMIZED_COLUMNS_NAMES))
 			return customColumns;
-		//TODO check for null when creating new columns (expression could not be null)
+
 		String[] names = getProperty(CUSTOMIZED_COLUMNS_NAMES).replaceAll("\\s+","").split(","); 
 		
 		for (String name : names) {
 			String newName = getProperty(COLUMN_PREFIX + name + NAME_SUFFIX);
 			String dataType = getProperty(COLUMN_PREFIX + name + DATATYPE_SUFFIX);
 			String expression = getProperty(COLUMN_PREFIX + name + EXPRESSION_SUFFIX);
-									//TODO should be ColumnDescriptor
-			customColumns.put(name, new PartitioningColumnDescriptor(newName, expression, dataType));
+
+			customColumns.put(name, new ColumnDescriptor(newName, dataType, expression));
 		}
 		
 		return customColumns;

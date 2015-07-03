@@ -175,7 +175,7 @@ Following parameters will not take effect.
 
 The loader has been implemented in Java, so we need to run it using the JVM. HDFS configuration file "core-site.xml" should be included in the classpath as well as the generated binary.
 
-A parameters file should be created and point out as first argument (if not specified, it will try to find ./config.properties).
+A parameters file should be created and pointed out as first argument (if not specified, it will try to find ./config.properties).
 
 ```
 java -cp core-site.xml:ogg-impala-0.0.1-SNAPSHOT-jar-with-dependencies.jar \
