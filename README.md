@@ -127,13 +127,13 @@ Per specified column in the above parameter, we can set the following parameters
   
   * impala.table.column.COLUMN_NAME.name: new column name (default: original column name)
   * impala.table.column.COLUMN_NAME.datatype: new Impala data type (default: corresponding Impala data type with original JDBC type)
-  * impala.table.column.COLUMN_NAME.expression: Impala expression to be used for generating final value. It should return the final data type. as string (default: cast(COLUMN_NAME as CORRESPONDING_DATA_TYPE)).
+  * impala.table.column.COLUMN_NAME.expression: new Impala expression to be used for generating final value. It should return a value of the final data type. (default: cast(ORIGINAL_COLUMN_NAME as CONFIGURED_DATA_TYPE)).
   
 NOTE: Columns of temporal table are created with original (as source Oracle table) columns names and all of them are STRING data type. Expressions are used in the query that query temporal table and insert this data into the final table which will have the specified data type.
 
 Default data types mapping between original JDBC type and Impala data types can be found at src/main/java/ch/cern/impala/ogg/datapump/impala/TypeConverter.java class.
 
-If you set a new data type, a new expression that generates this new data type should be configured, otherwise import query may fail.
+If you set a new data type, a new casting expression is generated with the new data type and the original name, unless a new expression is specified. 
   
 ##### New columns
 
