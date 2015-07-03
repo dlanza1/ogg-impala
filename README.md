@@ -137,9 +137,9 @@ If you set a new data type, a new casting expression is generated with the new d
   
 ##### New columns
 
-New columns can be added to the final Impala table using the same parameter for customized columns. A not used name should be used and all the parameters regarding the new columns must be configured (name, data type and expression).
+New columns can be added to the final Impala table using the same parameter for customized columns (impala.table.columns.customize). 
 
-The expression must use original column names of other columns.
+A not original name should be used and data type and expression parameters must be configured for the new column (the name does not need to be specified). The expression must use original column/s names.
 
 ##### Partitioning columns
 

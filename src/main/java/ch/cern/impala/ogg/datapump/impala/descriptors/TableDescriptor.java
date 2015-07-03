@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -192,20 +193,35 @@ public class TableDescriptor {
 	private void applyCustomColumnConfiguration(PropertiesE prop) throws FileFormatException {
 		HashMap<String, ColumnDescriptor> customColumns = prop.getCustomizedColumns();
 		
-		for (String customColumnName : customColumns.keySet()) {
-			Preconditions.checkState(columns_map.containsKey(customColumnName),
-					"the column " + customColumnName + " does not exist, "
-							+ "you must customize columns "
-							+ "that exist in the definition file.");
+		for (Map.Entry<String, ColumnDescriptor> entry : customColumns.entrySet()) {
+			String customColumnName = entry.getKey();
+			ColumnDescriptor customColumn = entry.getValue();
 			
-			ColumnDescriptor customColumn = customColumns.get(customColumnName);
-			//TODO check for null when creating new columns (expression could not be null)
-			
-			// Set custom values
 			ColumnDescriptor columnDef = columns_map.get(customColumnName);
-			columnDef.applyCustom(customColumn);
-			
-			LOG.debug("applied custom values for column " + customColumnName + ": " + columnDef);
+			if(columnDef != null){
+				//If column already exists, customize it
+				
+				columnDef.applyCustom(customColumn);
+				
+				LOG.debug("applied custom values for column " + customColumnName + ": " + columnDef);
+			}else{
+				//If column does not exist, add new column
+				
+				//Check if all atributtes have been establish
+				if(customColumn.getType() == null
+						|| customColumn.getExpression() == null)
+					throw new FileFormatException("when creating new columns ("
+							+ customColumnName + ") data type and expression"
+							+ " must be configured");
+				
+				//Set column name
+				customColumn.setName(customColumnName);
+				
+				//Add it to the collection
+				addColumnDescriptor(customColumn);
+				
+				LOG.debug("added new column " + columnDef);
+			}
 		}
 	}
 	
