@@ -79,12 +79,12 @@ In order to the loader is able to copy new data into HDFS, it should be configur
 <configuration>
 	<property>
 		<name>fs.defaultFS</name>
-		<value>hdfs://<HOST>:<PORT>/</value>
+		<value>hdfs://<HOST>:<PORT></value>
 	</property>
 </configuration>
 ```
 
-There is another properties file that must be created and pointed out by the first argument when running the loader. This file should contain parameter=value lines.
+There is another properties file that must be created and pointed out by the first argument when running the loader. This file should contain parameter=value lines. An example can be found at src/res/java/config.properties.
 
 There are two ways to configure the loader. If we want the loader generates automatically the Impala queries that will be used, we must follow the configuration shown in path A. Otherwise, we must specify each query in the configuration as shown in path B.
 
@@ -121,15 +121,17 @@ REMINDER: If final table already exists, it will not be created so no modificati
 
 The inferred information related with the column can be modified. You need to specify only the parameters related with the information that you want to customize. This customization will be applied in the final Impala table.
 
-  * impala.table.columns.customize: original column name of the columns that you want to customize (below parameters: COLUMN_NAME).
+  * impala.table.columns.customize: original column name separated by commas of the columns that you want to customize (below parameters: COLUMN_NAME).
   
 Per specified column in the above parameter, we can set the following parameters.  
   
   * impala.table.column.COLUMN_NAME.name: new column name (default: original column name)
-  * impala.table.column.COLUMN_NAME.datatype: new Impala data type (default: corresponding Impala data type)
+  * impala.table.column.COLUMN_NAME.datatype: new Impala data type (default: corresponding Impala data type with original JDBC type)
   * impala.table.column.COLUMN_NAME.expression: Impala expression to be used for generating final value. It should return the final data type. as string (default: cast(COLUMN_NAME as CORRESPONDING_DATA_TYPE)).
   
 NOTE: Columns of temporal table are created with original (as source Oracle table) columns names and all of them are STRING data type. Expressions are used in the query that query temporal table and insert this data into the final table which will have the specified data type.
+
+Default data types mapping between original JDBC type and Impala data types can be found at src/main/java/ch/cern/impala/ogg/datapump/impala/TypeConverter.java class.
 
 If you set a new data type, a new expression that generates this new data type should be configured, otherwise import query may fail.
   
@@ -171,10 +173,12 @@ Following parameters will not take effect.
 
 ## Running it!
 
-The loader has been implemented in Java, so we need to run it using the JVM. A parameters file should be created and point out as first argument (if not specified, it will try to find ./config.properties). 
+The loader has been implemented in Java, so we need to run it using the JVM. HDFS configuration file "core-site.xml" should be included in the classpath as well as the generated binary.
+
+A parameters file should be created and point out as first argument (if not specified, it will try to find ./config.properties).
 
 ```
-java -cp ogg-impala-0.0.1-SNAPSHOT-jar-with-dependencies.jar \
+java -cp core-site.xml:ogg-impala-0.0.1-SNAPSHOT-jar-with-dependencies.jar \
    ch.cern.impala.ogg.datapump.ImpalaDataLoader \
    (path_to_parameters_file)
 ```
