@@ -41,7 +41,7 @@ public class ColumnDescriptor {
 		this.expression = "cast(" + name + " as " + type + ")";
 	}
 	
-	public ColumnDescriptor() {
+	protected ColumnDescriptor() {
 	}
 
 	public String getExpression(){
