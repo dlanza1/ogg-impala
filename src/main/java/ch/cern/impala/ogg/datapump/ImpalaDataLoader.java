@@ -229,7 +229,7 @@ public class ImpalaDataLoader {
 		// Get Impala connected
 		impalaClient.connect();
 		
-		// Create target table if it does not exist
+		// Create final table if it does not exist
 		try {
 			createTargetTable.exect();
 			LOG.info("created final table");
@@ -237,6 +237,8 @@ public class ImpalaDataLoader {
 			if (!e.getMessage().contains("Table already exists:")) {
 				LOG.error("final table could not be created", e);
 				throw e;
+			}else{
+				LOG.info("final table already exists, so existing table will be used");
 			}
 		}
 		

@@ -16,6 +16,10 @@ public class ColumnDescriptor {
 		this.name = name;
 		this.type = type;
 		this.expression = expression;
+		
+		//TODO change arguments order
+		
+		//TODO when type is null, generate expression
 	}
 
 	public ColumnDescriptor(String name, String type) {
@@ -41,8 +45,11 @@ public class ColumnDescriptor {
 		return name;
 	}
 
-	public void setType(String newDataType) {
+	public void setType(String newDataType) {	
 		this.type = newDataType;
+		
+		//Setting type can not generate new cast expression because
+		//name could have been changed
 	}
 
 	public String getType() {
