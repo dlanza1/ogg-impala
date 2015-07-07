@@ -16,8 +16,6 @@ import ch.cern.impala.ogg.datapump.impala.TypeConverter;
 import ch.cern.impala.ogg.datapump.oracle.FileFormatException;
 import ch.cern.impala.ogg.datapump.utils.PropertiesE;
 
-import com.google.common.base.Preconditions;
-
 public class TableDescriptor {
 
 	final private static Logger LOG = LoggerFactory.getLogger(TableDescriptor.class);
