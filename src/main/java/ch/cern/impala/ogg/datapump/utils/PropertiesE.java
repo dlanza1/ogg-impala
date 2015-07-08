@@ -13,7 +13,6 @@ import org.apache.log4j.Logger;
 import ch.cern.impala.ogg.datapump.impala.descriptors.ColumnDescriptor;
 import ch.cern.impala.ogg.datapump.impala.descriptors.PartitioningColumnDescriptor;
 import ch.cern.impala.ogg.datapump.oracle.ControlFile;
-import ch.cern.impala.ogg.datapump.oracle.FileFormatException;
 
 public class PropertiesE extends Properties {
 	private static final long serialVersionUID = 3733307414558688437L;
@@ -186,7 +185,7 @@ public class PropertiesE extends Properties {
 	}
 
 	public LinkedList<PartitioningColumnDescriptor> getPartitioningColumns() 
-			throws FileFormatException, BadConfigurationException {
+			throws BadConfigurationException {
 		LinkedList<PartitioningColumnDescriptor> partColumns = new LinkedList<PartitioningColumnDescriptor>();
 		
 		if(!containsKey(PARTITIONING_COLUMNS_NAMES))
@@ -209,7 +208,7 @@ public class PropertiesE extends Properties {
 		return partColumns;
 	}
 	
-	public HashMap<String, ColumnDescriptor> getCustomizedColumns() throws FileFormatException {
+	public HashMap<String, ColumnDescriptor> getCustomizedColumns() {
 		HashMap<String, ColumnDescriptor> customColumns = new HashMap<String, ColumnDescriptor>();
 		
 		if(!containsKey(CUSTOMIZED_COLUMNS_NAMES))

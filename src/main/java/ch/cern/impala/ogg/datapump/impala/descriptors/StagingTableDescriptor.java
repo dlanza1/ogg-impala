@@ -3,7 +3,6 @@ package ch.cern.impala.ogg.datapump.impala.descriptors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import ch.cern.impala.ogg.datapump.oracle.FileFormatException;
 import ch.cern.impala.ogg.datapump.utils.PropertiesE;
 
 public class StagingTableDescriptor extends TableDescriptor {
@@ -15,7 +14,7 @@ public class StagingTableDescriptor extends TableDescriptor {
 	}
 
 	@Override
-	public void applyCustomConfiguration(PropertiesE prop) throws FileFormatException {
+	public void applyCustomConfiguration(PropertiesE prop) {
 
 		if(prop.containsKey(PropertiesE.IMPALA_STAGING_TABLE_SCHEMA))
 			schemaName = prop.getProperty(PropertiesE.IMPALA_STAGING_TABLE_SCHEMA);

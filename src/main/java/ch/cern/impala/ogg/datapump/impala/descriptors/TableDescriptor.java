@@ -172,10 +172,9 @@ public class TableDescriptor {
 	 * Apply custom configuration
 	 * 
 	 * @param prop Configuration properties
-	 * @throws FileFormatException 
 	 * @throws BadConfigurationException 
 	 */
-	public void applyCustomConfiguration(PropertiesE prop) throws FileFormatException, BadConfigurationException {
+	public void applyCustomConfiguration(PropertiesE prop) throws BadConfigurationException {
 
 		if(prop.containsKey(PropertiesE.IMPALA_TABLE_SCHEMA))
 			schemaName = prop.getProperty(PropertiesE.IMPALA_TABLE_SCHEMA);
@@ -190,7 +189,7 @@ public class TableDescriptor {
 		applyPartitioningColumns(prop);
 	}
 
-	private void applyCustomColumnConfiguration(PropertiesE prop) throws FileFormatException {
+	private void applyCustomColumnConfiguration(PropertiesE prop) throws BadConfigurationException {
 		HashMap<String, ColumnDescriptor> customColumns = prop.getCustomizedColumns();
 		
 		for (Map.Entry<String, ColumnDescriptor> entry : customColumns.entrySet()) {
@@ -210,7 +209,7 @@ public class TableDescriptor {
 				//Check if all atributtes have been establish
 				if(customColumn.getType() == null
 						|| customColumn.getExpression() == null)
-					throw new FileFormatException("when creating new columns ("
+					throw new BadConfigurationException("when creating new columns ("
 							+ customColumnName + ") data type and expression"
 							+ " must be configured");
 				
@@ -225,8 +224,7 @@ public class TableDescriptor {
 		}
 	}
 	
-	private void applyPartitioningColumns(PropertiesE prop)
-			throws FileFormatException, BadConfigurationException {
+	private void applyPartitioningColumns(PropertiesE prop) throws BadConfigurationException {
 		
 		LinkedList<PartitioningColumnDescriptor> partitioningColumns = prop.getPartitioningColumns();
 		
