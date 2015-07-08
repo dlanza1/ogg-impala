@@ -223,7 +223,7 @@ public class ImpalaDataLoader {
 		sourceControlFiles = prop.getSourceContorlFiles(null, null);
 	}
 	
-	private void start() throws Exception {
+	private void start() throws IOException, SQLException, FatalException {
 		
 		// Get absolute path, test it and delete it
 		stagingHDFSDirectory = testStagingDirectory(hdfs, stagingHDFSDirectory);
@@ -374,13 +374,15 @@ public class ImpalaDataLoader {
 				// the loader (default behaviour) or finish the execution
 				
 				if (e instanceof NullPointerException
-						|| e instanceof FileNotFoundException) {
+						|| e instanceof FileNotFoundException
+						|| e instanceof FatalException) {
 					throw e;
 				}
 				
 				LOG.error("there was an error in the current batch. "
-						+ "Waiting " + (ms_after_failure / 1000) + " seconds before restarting the loader. "
-						+ "Cause of error:", e);
+						+ "Waiting " + (ms_after_failure / 1000) 
+						+ " seconds before restarting the loader. "
+						+ "Cause of error: ", e);
 				try {
 					TimeUnit.MILLISECONDS.sleep(ms_after_failure);
 				} catch (InterruptedException eSleep) {}

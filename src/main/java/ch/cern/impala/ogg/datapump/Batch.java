@@ -41,7 +41,7 @@ public class Batch {
 			Query dropStagingTable,
 			Query createStagingTable,
 			Query insertInto) 
-			throws IOException, ClassNotFoundException, SQLException {
+			throws IOException, SQLException {
 		this.local = local;
 		this.hdfs = hdfs;
 		this.controlFiles = controlFiles;
@@ -57,7 +57,7 @@ public class Batch {
 		}
 	}
 
-	public void start() throws Exception {
+	public void start() throws IOException, SQLException {
 			
 		// Create staging directory
 		if(!hdfs.mkdirs(stagingHDFSDirectory)){
@@ -79,7 +79,7 @@ public class Batch {
 		LOG.info("copied data from staging table to final table");
 	}
 
-	private void copyDataFilesToHDFS(FileSystem local, FileSystem hdfs) throws Exception {
+	private void copyDataFilesToHDFS(FileSystem local, FileSystem hdfs) throws IOException {
 		
 		//Copy all files into HDFS
 		long totalSize = 0;
@@ -89,7 +89,7 @@ public class Batch {
 			long length = 0;
 			try{
 				length = local.getFileStatus(path).getLen();
-			}catch(IOException e){}
+			}catch(Exception e){}
 			
 			try{
 				hdfs.copyFromLocalFile(path, stagingHDFSDirectory);
@@ -100,19 +100,24 @@ public class Batch {
 						+ " bytes) has been copied to " + stagingHDFSDirectory);
 			}catch(Exception e){
 				LOG.error("the local file " + path + " could not be copied to HDFS", e);
-				throw e;
+				
+				throw new IOException(e);
 			}
 		}
 		
-		LOG.info(dataFiles.size() + " files " + "("+ totalSize + " bytes) have been copied to HDFS");
+		LOG.info(dataFiles.size() + " files " + "("+ (totalSize / 1024 / 1024) 
+				+ " MB) have been copied to HDFS");
 	}
 
 	/**
 	 * Remove control file and staging data
+	 * @throws FatalException 
+	 * @throws SQLException 
+	 * @throws IOException 
 	 * 
 	 * @throws Exception
 	 */
-	public void clean() throws Exception {
+	public void clean() throws FatalException, SQLException, IOException  {
 
 		//Delete control files
 		for (ControlFile controlFile : controlFiles) {
@@ -126,7 +131,7 @@ public class Batch {
 						+ " starting again the loader, otherwise data will be "
 						+ " reinserted into final table (duplicates)");
 				
-				throw e;
+				throw new FatalException(e);
 			}
 		}
 		
@@ -134,10 +139,14 @@ public class Batch {
 		for (String file : dataFiles) {
 			Path path = new Path(file);
 			
-			if(local.delete(path, true)){
-				LOG.debug(file + " has been deleted");
-			}else{
-				throw new IllegalStateException("the data file " + file + " could not be deleted");
+			try {
+				if(local.delete(path, true)){
+					LOG.debug(file + " has been deleted");
+				}else{
+					throw new IOException();
+				}
+			} catch (IOException e) {
+				LOG.error("the data file " + file + " could not be deleted", e);
 			}
 		}
 		
@@ -160,7 +169,8 @@ public class Batch {
 		}catch(Exception e){
 			LOG.error("the HDFS directory " + stagingHDFSDirectory + " which contains "
 					+ "the data of the staging table could not be deleted", e);
-			throw e;
+			
+			throw new IOException(e);
 		}
 		
 		LOG.info("deleted staging data");
