@@ -20,6 +20,7 @@ import ch.cern.impala.ogg.datapump.impala.QueryBuilder;
 import ch.cern.impala.ogg.datapump.impala.descriptors.StagingTableDescriptor;
 import ch.cern.impala.ogg.datapump.impala.descriptors.TableDescriptor;
 import ch.cern.impala.ogg.datapump.oracle.ControlFile;
+import ch.cern.impala.ogg.datapump.utils.BadConfigurationException;
 import ch.cern.impala.ogg.datapump.utils.PropertiesE;
 
 public class ImpalaDataLoader {
@@ -74,7 +75,7 @@ public class ImpalaDataLoader {
 	private ImpalaClient impalaClient;
 
 	public ImpalaDataLoader(PropertiesE prop) 
-			throws IOException, IllegalStateException, CloneNotSupportedException, ClassNotFoundException {
+			throws IOException, IllegalStateException, CloneNotSupportedException, ClassNotFoundException, BadConfigurationException {
 		
 		// Get file systems
 		Configuration conf = new Configuration();
@@ -113,7 +114,7 @@ public class ImpalaDataLoader {
 	}
 
 	private void configureFromDefinitionFile(PropertiesE prop, ImpalaClient impalaClient)
-			throws IllegalStateException, IOException, CloneNotSupportedException {
+			throws IllegalStateException, IOException, CloneNotSupportedException, BadConfigurationException {
 
 		// Get source table descriptor
 		TableDescriptor sourceTableDes = TableDescriptor.createFromFile(prop.getDefinitionFile());
@@ -181,7 +182,8 @@ public class ImpalaDataLoader {
 														sourceTableDes.getTableName());
 	}
 
-	private void configureWithoutDefinitionFile(PropertiesE prop, ImpalaClient impalaClient) throws IOException {
+	private void configureWithoutDefinitionFile(PropertiesE prop, ImpalaClient impalaClient) 
+			throws IOException, IllegalStateException, BadConfigurationException {
 
 		// Check all configuration needed
 		String createStagingTableQuery_prop = prop.getCreateStagingTableQuery();

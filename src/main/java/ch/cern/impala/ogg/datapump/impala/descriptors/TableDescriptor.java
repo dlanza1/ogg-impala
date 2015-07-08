@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 
 import ch.cern.impala.ogg.datapump.impala.TypeConverter;
 import ch.cern.impala.ogg.datapump.oracle.FileFormatException;
+import ch.cern.impala.ogg.datapump.utils.BadConfigurationException;
 import ch.cern.impala.ogg.datapump.utils.PropertiesE;
 
 public class TableDescriptor {
@@ -172,8 +173,9 @@ public class TableDescriptor {
 	 * 
 	 * @param prop Configuration properties
 	 * @throws FileFormatException 
+	 * @throws BadConfigurationException 
 	 */
-	public void applyCustomConfiguration(PropertiesE prop) throws FileFormatException {
+	public void applyCustomConfiguration(PropertiesE prop) throws FileFormatException, BadConfigurationException {
 
 		if(prop.containsKey(PropertiesE.IMPALA_TABLE_SCHEMA))
 			schemaName = prop.getProperty(PropertiesE.IMPALA_TABLE_SCHEMA);
@@ -223,7 +225,9 @@ public class TableDescriptor {
 		}
 	}
 	
-	private void applyPartitioningColumns(PropertiesE prop) throws FileFormatException {
+	private void applyPartitioningColumns(PropertiesE prop)
+			throws FileFormatException, BadConfigurationException {
+		
 		LinkedList<PartitioningColumnDescriptor> partitioningColumns = prop.getPartitioningColumns();
 		
 		for (PartitioningColumnDescriptor partitioningColumn : partitioningColumns){

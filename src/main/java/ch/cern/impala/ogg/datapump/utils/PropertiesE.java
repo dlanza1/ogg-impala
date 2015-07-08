@@ -15,8 +15,6 @@ import ch.cern.impala.ogg.datapump.impala.descriptors.PartitioningColumnDescript
 import ch.cern.impala.ogg.datapump.oracle.ControlFile;
 import ch.cern.impala.ogg.datapump.oracle.FileFormatException;
 
-import com.google.common.base.Preconditions;
-
 public class PropertiesE extends Properties {
 	private static final long serialVersionUID = 3733307414558688437L;
 	
@@ -24,16 +22,16 @@ public class PropertiesE extends Properties {
 
 	public static final String DEFAULT_PROPETIES_FILE = "config.properties";
 	
-	private static final String OGG_DATA_FOLDERS = "ogg.data.folders";
+	public static final String OGG_DATA_FOLDERS = "ogg.data.folders";
 	
 	public static final String OGG_CONTROL_FILE_NAME = "ogg.control.file.name";
 	public static final String OGG_DEFINITION_FILE_NAME = "ogg.definition.file.name";
 
-	private static final String SECONDS_BETWEEN_BATCHES = "batch.between.sec";
-	private static final int DEFAULT_SECONDS_BETWEEN_BATCHES = 30;
+	protected static final String SECONDS_BETWEEN_BATCHES = "batch.between.sec";
+	protected static final int DEFAULT_SECONDS_BETWEEN_BATCHES = 30;
 	
-	private static final String SECONDS_AFTER_FAILURE = "loader.failure.wait";
-	private static final int DEFAULT_SECONDS_AFTER_FAILURE = 60;
+	protected static final String SECONDS_AFTER_FAILURE = "loader.failure.wait";
+	protected static final int DEFAULT_SECONDS_AFTER_FAILURE = 60;
 
 	private static final String IMPALA_STAGING_DIRECTORY = "impala.staging.table.directory";
 	private static final String DEFAULT_STAGING_HDFS_DIRECTORY = "ogg/staging/";
@@ -41,8 +39,8 @@ public class PropertiesE extends Properties {
 	private static final String IMPALA_HOST = "impala.host";
 	private static final String DEFAULT_IMPALA_HOST = "localhost";
 
-	private static final String IMPALA_PORT = "impala.port";
-	private static final String DEFAULT_IMPALA_PORT = "21050";
+	protected static final String IMPALA_PORT = "impala.port";
+	protected static final int DEFAULT_IMPALA_PORT = 21050;
 
 	public static final String IMPALA_TABLE_SCHEMA = "impala.table.schema";
 	public static final String IMPALA_STAGING_TABLE_SCHEMA = "impala.staging.table.schema";
@@ -112,7 +110,7 @@ public class PropertiesE extends Properties {
 	}
 
 	public LinkedList<ControlFile> getSourceContorlFiles(String schema, String table) 
-			throws IllegalStateException, IOException {
+			throws IllegalStateException, IOException, BadConfigurationException {
 		
 		LinkedList<String> dataFolders = getSourceLocalDirectories();
 		
@@ -133,17 +131,11 @@ public class PropertiesE extends Properties {
 		return controlFiles;
 	}
 	
-	public File getDefinitionFile() throws IllegalStateException, IOException {
+	public File getDefinitionFile() throws IllegalStateException, IOException, BadConfigurationException {
 		
-		String sourceControlFile_prop = getProperty(OGG_DEFINITION_FILE_NAME);
-		
-		if(sourceControlFile_prop == null){
-			String error_message = "the path of the definition file "
-					+ "must be specified by " + OGG_DEFINITION_FILE_NAME; 
-			
-			LOG.error(error_message);
-			throw new IllegalStateException(error_message);
-		}
+		String sourceControlFile_prop = getMandatoryProperty(
+												OGG_DEFINITION_FILE_NAME
+												, "the path of the definition file");
 		
 		return new File(sourceControlFile_prop);
 	}
@@ -152,34 +144,20 @@ public class PropertiesE extends Properties {
 	 * Get the time in milliseconds between batches
 	 * 
 	 * @return Time in milliseconds between batches
+	 * @throws BadConfigurationException 
 	 */
-	public long getTimeBetweenBatches() {
-		int seconds_between_batches = DEFAULT_SECONDS_BETWEEN_BATCHES;
-		try{
-			seconds_between_batches = Integer.valueOf(getProperty(SECONDS_BETWEEN_BATCHES));
-		}catch(Exception e){
-			LOG.warn("the number of seconds between batches has been set "
-					+ "to the default value (" + seconds_between_batches + " seconds)");
-		}
-		
-		return seconds_between_batches * 1000;
+	public long getTimeBetweenBatches() throws BadConfigurationException {
+		return getInteger(SECONDS_BETWEEN_BATCHES, DEFAULT_SECONDS_BETWEEN_BATCHES) * 1000;
 	}
 	
 	/**
 	 * Get the time in milliseconds that the loader should wait after a failure
 	 * 
 	 * @return Time in milliseconds after failure
+	 * @throws BadConfigurationException 
 	 */
-	public long getTimeAfterFailure() {
-		int seconds_between_batches = DEFAULT_SECONDS_AFTER_FAILURE;
-		try{
-			seconds_between_batches = Integer.valueOf(getProperty(SECONDS_AFTER_FAILURE));
-		}catch(Exception e){
-			LOG.warn("the number of seconds after a failure has been set "
-					+ "to the default value (" + seconds_between_batches + " seconds)");
-		}
-		
-		return seconds_between_batches * 1000;
+	public long getTimeAfterFailure() throws BadConfigurationException {
+		return getInteger(SECONDS_AFTER_FAILURE, DEFAULT_SECONDS_AFTER_FAILURE) * 1000;
 	}
 
 	public Path getStagingHDFSDirectory(String schema, String table) {
@@ -187,10 +165,9 @@ public class PropertiesE extends Properties {
 				DEFAULT_STAGING_HDFS_DIRECTORY + schema + "/" + table));
 	}
 
-	public LinkedList<String> getSourceLocalDirectories() {
+	public LinkedList<String> getSourceLocalDirectories() throws BadConfigurationException {
 		
-		String prop = getProperty(OGG_DATA_FOLDERS);
-		Preconditions.checkNotNull(prop, "the property " + OGG_DATA_FOLDERS + " must be specified");
+		String prop = getMandatoryProperty(OGG_DATA_FOLDERS, "data folders");
 		
 		String[] values = prop.replaceAll("\\s+","").split(",");;
 		LinkedList<String> dirs = new LinkedList<String>();
@@ -204,11 +181,12 @@ public class PropertiesE extends Properties {
 		return getProperty(IMPALA_HOST, DEFAULT_IMPALA_HOST);
 	}
 
-	public int getImpalaPort() {
-		return Integer.valueOf(getProperty(IMPALA_PORT, DEFAULT_IMPALA_PORT));
+	public int getImpalaPort() throws BadConfigurationException {
+		return getInteger(IMPALA_PORT, DEFAULT_IMPALA_PORT);
 	}
 
-	public LinkedList<PartitioningColumnDescriptor> getPartitioningColumns() throws FileFormatException {
+	public LinkedList<PartitioningColumnDescriptor> getPartitioningColumns() 
+			throws FileFormatException, BadConfigurationException {
 		LinkedList<PartitioningColumnDescriptor> partColumns = new LinkedList<PartitioningColumnDescriptor>();
 		
 		if(!containsKey(PARTITIONING_COLUMNS_NAMES))
@@ -218,24 +196,12 @@ public class PropertiesE extends Properties {
 		
 		for (String name : names) {
 			String dataTypeProperty = PARTITIONING_COLUMN_PREFIX + name + DATATYPE_SUFFIX;
-			String dataType = getProperty(dataTypeProperty);
-			if(dataType == null){
-				FileFormatException fileFormatException = new FileFormatException(
-						"the data type for the partitioning column " + name
-						+ " must be specified with the parameter " + dataTypeProperty);
-				LOG.error(fileFormatException.getMessage(), fileFormatException);
-				throw fileFormatException;
-			}
+			String dataType = getMandatoryProperty(dataTypeProperty,
+									"the data type for the partitioning column " + name);
 			
 			String expressionProperty = PARTITIONING_COLUMN_PREFIX + name + EXPRESSION_SUFFIX;
-			String expression = getProperty(expressionProperty);
-			if(expression == null){
-				FileFormatException fileFormatException = new FileFormatException(
-						"the expression for the partitioning column " + name
-						+ " must be specified with the parameter " + expressionProperty);
-				LOG.error(fileFormatException.getMessage(), fileFormatException);
-				throw fileFormatException;
-			}
+			String expression = getMandatoryProperty(expressionProperty,
+					"the expression for the partitioning column " + name);
 			
 			partColumns.add(new PartitioningColumnDescriptor(name, dataType, expression));
 		}
@@ -276,5 +242,40 @@ public class PropertiesE extends Properties {
 
 	public String getDropStagingTableQuery() {
 		return getProperty(DROP_STAGING_TABLE_QUERY);
+	}
+	
+	private String getMandatoryProperty(String property, String description) 
+			throws BadConfigurationException{
+		
+		String value = getProperty(property);
+
+		if(value == null){
+			String error_message = description + " must be specified by " 
+					+ property + " property"; 
+			
+			LOG.error(error_message);
+			
+			throw new BadConfigurationException(error_message);
+		}
+		
+		return value;
+	}
+	
+	private int getInteger(String property, Integer default_value) 
+			throws BadConfigurationException{
+		
+		String value_from_prop = getProperty(property);
+		if(value_from_prop == null)
+			return default_value;
+		
+		try{
+			return Integer.valueOf(value_from_prop);
+		}catch(Exception e){
+			BadConfigurationException exc = new BadConfigurationException(
+					"the value of " + property + " is not a valid integer");
+			
+			LOG.error(exc.getMessage(), e);
+			throw exc;
+		}
 	}
 }
