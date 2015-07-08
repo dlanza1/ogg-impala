@@ -10,6 +10,8 @@ import java.util.Properties;
 import org.apache.hadoop.fs.Path;
 import org.apache.log4j.Logger;
 
+import com.google.common.base.Preconditions;
+
 import ch.cern.impala.ogg.datapump.impala.descriptors.ColumnDescriptor;
 import ch.cern.impala.ogg.datapump.impala.descriptors.PartitioningColumnDescriptor;
 import ch.cern.impala.ogg.datapump.oracle.ControlFile;
@@ -109,16 +111,19 @@ public class PropertiesE extends Properties {
 	}
 
 	public LinkedList<ControlFile> getSourceContorlFiles(String schema, String table) 
-			throws IllegalStateException, IOException, BadConfigurationException {
+			throws BadConfigurationException, IOException {
 		
 		LinkedList<String> dataFolders = getSourceLocalDirectories();
 		
 		String sourceControlFile_prop = getProperty(OGG_CONTROL_FILE_NAME);
 		
 		if(sourceControlFile_prop == null){
+			Preconditions.checkNotNull(schema);
+			Preconditions.checkNotNull(table);
+			
 			sourceControlFile_prop = schema + "." + table + "control"; 
 			
-			LOG.warn("the name of the control filse was not specified, "
+			LOG.warn("the name of the control file was not specified, "
 					+ "so the default name will be used (" + sourceControlFile_prop + ")");
 		}
 		

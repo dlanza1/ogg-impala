@@ -8,6 +8,8 @@ import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.Mockito;
 
+import ch.cern.impala.ogg.datapump.oracle.ControlFile;
+
 @SuppressWarnings("serial")
 public class PropertiesETests extends Properties {
 	
@@ -85,8 +87,44 @@ public class PropertiesETests extends Properties {
 	}
 	
 	@Test
-	public void controlFIles(){
+	public void controlFiles() throws IOException{
+		PropertiesE prop = new PropertiesE("src/test/resources/empty.properties");
+		prop = Mockito.spy(prop);
 		
+		// When OGG_DATA_FOLDERS is null should fail
+		try {
+			prop.getSourceContorlFiles(null, null);
+			
+			Assert.fail();
+		} catch (BadConfigurationException e) {
+		} catch (IOException e) {
+			Assert.fail();
+		}
+		
+		// When arguments are null
+		Mockito.when(prop.getProperty(PropertiesE.OGG_DATA_FOLDERS)).thenReturn("data1,data2");
+		try {
+			prop.getSourceContorlFiles(null, null);
+			
+			Assert.fail();
+		} catch (NullPointerException e) {
+		} catch (BadConfigurationException e) {
+			Assert.fail();
+		} catch (IOException e) {
+			Assert.fail();
+		}
+		
+		try {
+			LinkedList<ControlFile> dirs = prop.getSourceContorlFiles("SCHEMA", "TABLE");
+			
+			Assert.assertEquals("data1/SCHEMA.TABLEcontrol", dirs.get(0).getPath());
+			Assert.assertEquals("data2/SCHEMA.TABLEcontrol", dirs.get(1).getPath());
+		} catch (BadConfigurationException e) {
+			Assert.fail();
+		} catch (IOException e) {
+			Assert.fail();
+		}
+
 	}
 	
 }
