@@ -113,7 +113,7 @@ public class TableDescriptor {
 				tableDes = new TableDescriptor(schema, table);
 			}else if(line.startsWith(PREFIX_NUM_COLUMNS)){
 				
-				//If it find the line which contains the number of rows before
+				//If it finds the line which contains the number of rows before
 				//the line of the table name, the format of the file is not correct
 				if(tableDes == null){
 					FileFormatException formatExcep = new FileFormatException(
@@ -206,13 +206,20 @@ public class TableDescriptor {
 			}else{
 				//If column does not exist, add new column
 				
-				//Check if all atributtes have been establish
+				//Check if all attributes have been establish
 				if(customColumn.getType() == null
 						|| customColumn.getExpression() == null)
 					throw new BadConfigurationException("when creating new columns ("
 							+ customColumnName + ") data type and expression"
 							+ " must be configured");
 				
+				if(customColumn.getName() != null){
+					LOG.warn("a custom name (" + customColumn.getName() + ") has been specified "
+							+ "for a new colum (" + customColumnName + ") but this custom name "
+							+ "will be not used since it is a new column and name has already been "
+							+ "declared in " + PropertiesE.CUSTOMIZED_COLUMNS_NAMES + " property.");
+				}
+					
 				//Set column name
 				customColumn.setName(customColumnName);
 				

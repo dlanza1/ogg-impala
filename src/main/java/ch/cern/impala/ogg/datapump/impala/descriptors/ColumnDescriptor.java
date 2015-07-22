@@ -77,8 +77,8 @@ public class ColumnDescriptor {
 	/**
 	 * Apply a custom definition 
 	 * 
-	 * Column descriptor send as argument should have
-	 * established the attribute which must be updated,
+	 * Column descriptor sent as argument should have
+	 * established the attributes to be updated,
 	 * otherwise they must be null. Exception with
 	 * expression attribute, it follows a special logic:
 	 *  - If new expression is specified (!= null), it is set.

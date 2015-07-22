@@ -106,14 +106,14 @@ A parameter determines which configuration path is used. If we specify the param
   
 ### Path A) Infer queries
 
-Each parameter that should be configured is shown below.
+Even using this path, you could set one or more queries using parameters in path B.
+
+Each parameter that can be configured is shown below.
   
   * impala.table.schema: new final table schema (default: original Oracle schema)
   * impala.table.name: new final table name (default: original Oracle name)
   * impala.staging.table.schema: new temporal table schema (default: original Oracle schema)
   * impala.staging.table.name: new temporal table name (default: original Oracle name + "_staging")
-  
-Nevertheless, you could set one or more queries using parameters in path B.
 
 REMINDER: If final table already exists, it will not be created so no modifications will be applied (parameters related with final table are applied only when creating final table).
 
@@ -139,13 +139,14 @@ If you set a new data type, a new casting expression is generated with the new d
 
 New columns can be added to the final Impala table using the same parameter for customized columns (impala.table.columns.customize). 
 
-A not original name should be used and data type and expression parameters must be configured for the new column (the name does not need to be specified). The expression must use original column/s names.
+A not original name should be used and data type and expression parameters must be configured for the new column (the name does not need to be specified, if specified, it will not be used). The expression must use original column/s names.
 
 ##### Partitioning columns
 
 In a similar way that we do with customized columns
 
   * impala.table.partitioning.columns: names separated by commas of partitioning columns
+  * impala.table.partitioning.column.PART_COLUMN_NAME.name: NOT USED 
   * impala.table.partitioning.column.PART_COLUMN_NAME.datatype: Impala data type
   * impala.table.partitioning.column.PART_COLUMN_NAME.expression: Impala expression which generate the value of the partitioning column (should return the specified data type).
 
