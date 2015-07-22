@@ -15,14 +15,14 @@ public class ColumnDescriptorTests {
 	
 	@Test
 	public void customizationWithExpression(){
-		ColumnDescriptor ori = new ColumnDescriptor("COL_1", "INT");
+		ColumnDescriptor ori = new ColumnDescriptor("COL_1", "DECIMAL(8,4)");
 		
-		ColumnDescriptor cust = new ColumnDescriptor("COL_2", "STRING", "expr1");
+		ColumnDescriptor cust = new ColumnDescriptor("COL_2", "DECIMAL(8,0)", "expr1");
 		
 		ori.applyCustom(cust);
 		
 		Assert.assertEquals("COL_2", ori.name);
-		Assert.assertEquals("STRING", ori.type);
+		Assert.assertEquals("DECIMAL(8,0)", ori.type);
 		Assert.assertEquals("expr1", ori.expression);
 	}
 	

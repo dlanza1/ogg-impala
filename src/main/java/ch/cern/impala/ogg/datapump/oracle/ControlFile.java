@@ -46,17 +46,17 @@ public class ControlFile extends File{
 			return controlFileToProcess;
 		}
 		
-		//If tthe control file does not exist, can not be created a control file to process
+		//If control file does not exist, can not be created a control file to process
 		if(!exists())
 			return null;
 	
 		//Rename this control file
 		if(!renameTo(controlFileToProcess)){
-			IOException e = new IOException("the source control file " + this + " could not be renamed");
+			IOException e = new IOException("source control file " + this + " could not be renamed");
 			LOG.error(e.getMessage(), e);
 			throw e;
 		}else{
-			LOG.debug("the control file " + this + " has been renamed to " + controlFileToProcess);
+			LOG.debug("control file " + this + " has been renamed to " + controlFileToProcess);
 		}
 		
 		return controlFileToProcess;

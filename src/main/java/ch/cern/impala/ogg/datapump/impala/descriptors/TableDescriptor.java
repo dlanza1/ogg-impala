@@ -12,6 +12,8 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Preconditions;
+
 import ch.cern.impala.ogg.datapump.impala.TypeConverter;
 import ch.cern.impala.ogg.datapump.oracle.FileFormatException;
 import ch.cern.impala.ogg.datapump.utils.BadConfigurationException;
@@ -158,6 +160,10 @@ public class TableDescriptor {
 	}
 
 	public void addColumnDescriptor(ColumnDescriptor newColumnDescriptor) {
+		Preconditions.checkArgument(
+				!columns_map.containsKey(newColumnDescriptor.getName()),
+				"a column with same name already exists");
+		
 		if(newColumnDescriptor instanceof PartitioningColumnDescriptor)
 			paritioningColumns_list.add(newColumnDescriptor);
 		else
