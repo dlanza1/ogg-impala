@@ -142,7 +142,7 @@ public class ImpalaDataLoader {
 		
 		QueryBuilder queryBuilder = impalaClient.getQueryBuilder();
 
-		// Get query for creating staging table
+		// Get custom query for creating staging table
 		String createStagingTableQuery_prop = prop.getCreateStagingTableQuery();
 		if (createStagingTableQuery_prop == null) {
 			createStagingTable = queryBuilder.createExternalTable(stagingTableDes, stagingHDFSDirectory);
@@ -152,7 +152,7 @@ public class ImpalaDataLoader {
 			createStagingTable = new Query(createStagingTableQuery_prop, impalaClient);
 		}
 		
-		// Get query for dropping staging table
+		// Get custom query for dropping staging table
 		String dropStagingTableQuery_prop = prop.getDropStagingTableQuery();
 		if (dropStagingTableQuery_prop == null) {
 			dropStagingTable = queryBuilder.dropTable(stagingTableDes);
@@ -160,7 +160,7 @@ public class ImpalaDataLoader {
 			dropStagingTable = new Query(dropStagingTableQuery_prop, impalaClient);
 		}
 
-		// Get query for importing data from staging table to final table
+		// Get custom query for importing data from staging table to final table
 		String insertIntoQuery_prop = prop.getInsertIntoQuery();
 		if (insertIntoQuery_prop == null) {
 			int parquetFileSize = prop.getParquetFileSize();
@@ -170,7 +170,7 @@ public class ImpalaDataLoader {
 			insertInto = new Query(insertIntoQuery_prop, impalaClient);
 		}
 
-		// Get query for creating target table
+		// Get custom query for creating target table
 		String createTargetTableQuery_prop = prop.getCreateTableQuery();
 		if (createTargetTableQuery_prop == null) {
 			createTargetTable = queryBuilder.createTable(targetTableDes);
@@ -220,7 +220,7 @@ public class ImpalaDataLoader {
 			createTargetTable = new Query(createTargetTableQuery_prop, impalaClient);
 
 		// Get staging directory
-		stagingHDFSDirectory = prop.getStagingHDFSDirectory("", "");
+		stagingHDFSDirectory = prop.getStagingHDFSDirectory(null, null);
 
 		// Get control file
 		sourceControlFiles = prop.getSourceContorlFiles(null, null);

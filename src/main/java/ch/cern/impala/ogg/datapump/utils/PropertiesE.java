@@ -34,8 +34,8 @@ public class PropertiesE extends Properties {
 	protected static final String SECONDS_AFTER_FAILURE = "loader.failure.wait";
 	protected static final int DEFAULT_SECONDS_AFTER_FAILURE = 60;
 
-	private static final String IMPALA_STAGING_DIRECTORY = "impala.staging.table.directory";
-	private static final String DEFAULT_STAGING_HDFS_DIRECTORY = "ogg/staging/";
+	protected static final String IMPALA_STAGING_DIRECTORY = "impala.staging.table.directory";
+	protected static final String DEFAULT_STAGING_HDFS_DIRECTORY = "ogg/staging";
 	
 	private static final String IMPALA_HOST = "impala.host";
 	private static final String DEFAULT_IMPALA_HOST = "localhost";
@@ -171,8 +171,14 @@ public class PropertiesE extends Properties {
 	}
 
 	public Path getStagingHDFSDirectory(String schema, String table) {
-		return new Path(getProperty(IMPALA_STAGING_DIRECTORY, 
-				DEFAULT_STAGING_HDFS_DIRECTORY + schema + "/" + table));
+		String dir_from_prop = getProperty(IMPALA_STAGING_DIRECTORY);
+		if(dir_from_prop != null)
+			return new Path(dir_from_prop);
+		
+		if(schema == null || table == null)
+			return new Path(DEFAULT_STAGING_HDFS_DIRECTORY);
+		else
+			return new Path(DEFAULT_STAGING_HDFS_DIRECTORY + schema + "/" + table);
 	}
 
 	public LinkedList<String> getSourceLocalDirectories() throws BadConfigurationException {

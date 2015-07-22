@@ -127,7 +127,7 @@ public class Batch {
 				LOG.debug("control file " + controlFile + " has been deleted");
 			}catch(Exception e){
 				LOG.error("the control file " + controlFile + " could not be deleted", e);
-				LOG.error("the control file \"" + controlFile + "\" must be deleted before"
+				LOG.error("the control file \"" + controlFile + "\" MUST be deleted before"
 						+ " starting again the loader, otherwise data will be "
 						+ " reinserted into final table (duplicates)");
 				

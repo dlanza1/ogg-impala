@@ -87,6 +87,25 @@ public class PropertiesETests extends Properties {
 	}
 	
 	@Test
+	public void stagingHDFSDirectory() throws IOException{
+		PropertiesE prop = new PropertiesE("src/test/resources/empty.properties");
+		prop = Mockito.spy(prop);
+		
+		Mockito.when(prop.getProperty(PropertiesE.IMPALA_STAGING_DIRECTORY)).thenReturn(null);
+		
+		Assert.assertEquals(PropertiesE.DEFAULT_STAGING_HDFS_DIRECTORY + "s/t", 
+				prop.getStagingHDFSDirectory("s", "t").toString());
+		Assert.assertEquals(PropertiesE.DEFAULT_STAGING_HDFS_DIRECTORY, 
+				prop.getStagingHDFSDirectory(null, "t").toString());
+		Assert.assertEquals(PropertiesE.DEFAULT_STAGING_HDFS_DIRECTORY, 
+				prop.getStagingHDFSDirectory("s", null).toString());
+		
+		Mockito.when(prop.getProperty(PropertiesE.IMPALA_STAGING_DIRECTORY)).thenReturn("path/to/dir");
+		Assert.assertEquals("path/to/dir", prop.getStagingHDFSDirectory("s", "t").toString());
+		Assert.assertEquals("path/to/dir", prop.getStagingHDFSDirectory(null, null).toString());
+	}
+	
+	@Test
 	public void controlFiles() throws IOException{
 		PropertiesE prop = new PropertiesE("src/test/resources/empty.properties");
 		prop = Mockito.spy(prop);
