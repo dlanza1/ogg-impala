@@ -112,6 +112,7 @@ Each parameter that can be configured is shown below.
   
   * impala.table.schema: new final table schema (default: original Oracle schema)
   * impala.table.name: new final table name (default: original Oracle name)
+  * impala.table.parquet_file_size: maximum Parquet file size for final table
   * impala.staging.table.schema: new temporal table schema (default: original Oracle schema)
   * impala.staging.table.name: new temporal table name (default: original Oracle name + "_staging")
 

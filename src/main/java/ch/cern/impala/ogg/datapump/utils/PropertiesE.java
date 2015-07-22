@@ -50,6 +50,12 @@ public class PropertiesE extends Properties {
 	public static final String IMPALA_STAGING_TABLE_NAME = "impala.staging.table.name";
 
 	/**
+	 * Specifies the maximum size of each Parquet data file produced when
+	 * inserting into final table 
+	 */
+	public static final String PARQUET_FILE_SIZE = "impala.table.parquet_file_size";
+	
+	/**
 	 * Parameter that indicates the names of the customized columns
 	 */
 	public static final String CUSTOMIZED_COLUMNS_NAMES = "impala.table.columns.customize";
@@ -281,5 +287,13 @@ public class PropertiesE extends Properties {
 			LOG.error(exc.getMessage(), e);
 			throw exc;
 		}
+	}
+
+	public int getParquetFileSize() throws BadConfigurationException {
+		int size = getInteger(PARQUET_FILE_SIZE, -1);
+		
+		if(size > 0) LOG.info("PARQUET_FILE_SIZE has been set to " + size + " bytes");
+		
+		return size;
 	}
 }

@@ -80,7 +80,7 @@ public class QueryBuilderTests {
 		
 		StagingTableDescriptor sourceDes = targetDes.getDefinitionForStagingTable();
 		
-		Query q = qb.insertInto(sourceDes, targetDes);
+		Query q = qb.insertInto(sourceDes, targetDes, -1);
 		Assert.assertEquals("INSERT INTO schema.table "
 				+ "SELECT cast(c1 as INT), "
 				+ "cast(c2 as BOOLEAN) "
@@ -92,8 +92,19 @@ public class QueryBuilderTests {
 		targetDes.addColumnDescriptor(new PartitioningColumnDescriptor(
 				"p2", "BIGINT", "cast(c2 as BIGINT)"));
 		
-		q = qb.insertInto(sourceDes, targetDes);
+		q = qb.insertInto(sourceDes, targetDes, -1);
 		Assert.assertEquals("INSERT INTO schema.table "
+				+ "PARTITION (p1, p2) "
+				+ "SELECT cast(c1 as INT), "
+				+ "cast(c2 as BOOLEAN), "
+				+ "cast(c1 as DECIMAL(5,1)), "
+				+ "cast(c2 as BIGINT) "
+				+ "FROM schema.table_staging", 
+				q.getStatement());
+		
+		q = qb.insertInto(sourceDes, targetDes, 1024);
+		Assert.assertEquals("set PARQUET_FILE_SIZE=1024; "
+				+ "INSERT INTO schema.table "
 				+ "PARTITION (p1, p2) "
 				+ "SELECT cast(c1 as INT), "
 				+ "cast(c2 as BOOLEAN), "

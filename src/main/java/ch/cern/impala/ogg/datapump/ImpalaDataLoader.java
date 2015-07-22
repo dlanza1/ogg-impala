@@ -160,7 +160,9 @@ public class ImpalaDataLoader {
 		// Get query for importing data from staging table to final table
 		String insertIntoQuery_prop = prop.getInsertIntoQuery();
 		if (insertIntoQuery_prop == null) {
-			insertInto = queryBuilder.insertInto(stagingTableDes, targetTableDes);
+			int parquetFileSize = prop.getParquetFileSize();
+			
+			insertInto = queryBuilder.insertInto(stagingTableDes, targetTableDes, parquetFileSize);
 		} else {
 			insertInto = new Query(insertIntoQuery_prop, impalaClient);
 			LOG.info("insert query set to: " + insertInto);

@@ -46,10 +46,13 @@ public class QueryBuilder {
 		return new Query(stmnt.toString(), client);
 	}
 	
-	public Query insertInto(StagingTableDescriptor sourceDes, TableDescriptor targetDes) {
+	public Query insertInto(StagingTableDescriptor sourceDes, 
+			TableDescriptor targetDes,
+			int parquetFileSize) {
 		StringBuilder stmnt = new StringBuilder();
 		
-		//TODO set PARQUET_FILE_SIZE=64m;
+		if(parquetFileSize > 0)
+			stmnt.append("set PARQUET_FILE_SIZE=" + parquetFileSize + "; ");
 		
 		ArrayList<ColumnDescriptor> partitioningColumns = targetDes.getPartitioningColumnDefinitions();
 		
