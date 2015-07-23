@@ -30,12 +30,12 @@ public class ImpalaDataLoader {
 	/**
 	 * Milliseconds between batches
 	 */
-	private long ms_between_batches;	
+	protected long ms_between_batches;	
 
 	/**
 	 * Control files which contains the name of the data files
 	 */
-	private LinkedList<ControlFile> sourceControlFiles;
+	protected LinkedList<ControlFile> sourceControlFiles;
 
 	/**
 	 * Local file system
@@ -50,27 +50,27 @@ public class ImpalaDataLoader {
 	/**
 	 * Staging directory where the data will be stored temporally
 	 */
-	private Path stagingHDFSDirectory;
+	protected Path stagingHDFSDirectory;
 
 	/**
 	 * Query to create the staging (temporal) table
 	 */
-	private Query createStagingTable;
+	protected Query createStagingTable;
 	
 	/**
 	 * Query to delete the staging table
 	 */
-	private Query dropStagingTable;
+	protected Query dropStagingTable;
 	
 	/**
 	 * Query to insert staging data into final table
 	 */
-	private Query insertInto;
+	protected Query insertInto;
 	
 	/**
 	 * Query to create the final table
 	 */
-	private Query createTargetTable;
+	protected Query createTargetTable;
 
 	private ImpalaClient impalaClient;
 
@@ -109,7 +109,7 @@ public class ImpalaDataLoader {
 			LOG.info("create target table query set to: " + createTargetTable);
 		}else{
 			LOG.info("create target table query has not been set, "
-					+ "it is suposed to already exists");
+					+ "taget table is suposed to already exists");
 		}
 		LOG.info("reading control data from " + sourceControlFiles);
 		
@@ -192,14 +192,13 @@ public class ImpalaDataLoader {
 		String createStagingTableQuery_prop = prop.getCreateStagingTableQuery();
 		String dropStagingTableQuery_prop = prop.getDropStagingTableQuery();
 		String insertIntoQuery_prop = prop.getInsertIntoQuery();
-		String createTargetTableQuery_prop = prop.getCreateTableQuery();
 
 		if (createStagingTableQuery_prop == null
 				|| dropStagingTableQuery_prop == null
 				|| insertIntoQuery_prop == null
 				|| prop.containsKey(PropertiesE.OGG_CONTROL_FILE_NAME) == false) {
 
-			IllegalStateException e = new IllegalStateException(
+			BadConfigurationException e = new BadConfigurationException(
 					"the loader could be initialized"
 							+ " because the configuration is not valid. "
 							+ "You must specify either the parameters for the "
@@ -215,7 +214,9 @@ public class ImpalaDataLoader {
 		dropStagingTable = new Query(dropStagingTableQuery_prop, impalaClient);
 		// Get query for importing data from staging table to final table
 		insertInto = new Query(insertIntoQuery_prop, impalaClient);
+		
 		// Get query for creating target table
+		String createTargetTableQuery_prop = prop.getCreateTableQuery();
 		if(createTargetTableQuery_prop != null)
 			createTargetTable = new Query(createTargetTableQuery_prop, impalaClient);
 
@@ -381,6 +382,7 @@ public class ImpalaDataLoader {
 				if (e instanceof NullPointerException
 						|| e instanceof FileNotFoundException
 						|| e instanceof FatalException) {
+					LOG.error("there was a fatal error: ", e);
 					throw e;
 				}
 				

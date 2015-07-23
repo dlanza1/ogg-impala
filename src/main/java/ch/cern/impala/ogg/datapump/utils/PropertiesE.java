@@ -28,20 +28,20 @@ public class PropertiesE extends Properties {
 	public static final String OGG_CONTROL_FILE_NAME = "ogg.control.file.name";
 	public static final String OGG_DEFINITION_FILE_NAME = "ogg.definition.file.name";
 
-	protected static final String SECONDS_BETWEEN_BATCHES = "batch.between.sec";
-	protected static final int DEFAULT_SECONDS_BETWEEN_BATCHES = 30;
+	public static final String SECONDS_BETWEEN_BATCHES = "batch.between.sec";
+	public static final int DEFAULT_SECONDS_BETWEEN_BATCHES = 30;
 	
-	protected static final String SECONDS_AFTER_FAILURE = "loader.failure.wait";
-	protected static final int DEFAULT_SECONDS_AFTER_FAILURE = 60;
+	public static final String SECONDS_AFTER_FAILURE = "loader.failure.wait";
+	public static final int DEFAULT_SECONDS_AFTER_FAILURE = 60;
 
-	protected static final String IMPALA_STAGING_DIRECTORY = "impala.staging.table.directory";
-	protected static final String DEFAULT_STAGING_HDFS_DIRECTORY = "ogg/staging";
+	public static final String IMPALA_STAGING_DIRECTORY = "impala.staging.table.directory";
+	public static final String DEFAULT_STAGING_HDFS_DIRECTORY = "ogg/staging";
 	
-	private static final String IMPALA_HOST = "impala.host";
-	private static final String DEFAULT_IMPALA_HOST = "localhost";
+	public static final String IMPALA_HOST = "impala.host";
+	public static final String DEFAULT_IMPALA_HOST = "localhost";
 
-	protected static final String IMPALA_PORT = "impala.port";
-	protected static final int DEFAULT_IMPALA_PORT = 21050;
+	public static final String IMPALA_PORT = "impala.port";
+	public static final int DEFAULT_IMPALA_PORT = 21050;
 
 	public static final String IMPALA_TABLE_SCHEMA = "impala.table.schema";
 	public static final String IMPALA_STAGING_TABLE_SCHEMA = "impala.staging.table.schema";
@@ -90,10 +90,10 @@ public class PropertiesE extends Properties {
 	 */
 	public static final String EXPRESSION_SUFFIX = ".expression";
 	
-	private static final String CREATE_STAGING_TABLE_QUERY = "impala.staging.table.query.create";
-	private static final String DROP_STAGING_TABLE_QUERY = "impala.staging.table.query.drop";
-	private static final String INSERT_INTO_QUERY = "impala.table.query.insert";
-	private static final String CREATE_TABLE_QUERY = "impala.table.query.create";
+	public static final String CREATE_STAGING_TABLE_QUERY = "impala.staging.table.query.create";
+	public static final String DROP_STAGING_TABLE_QUERY = "impala.staging.table.query.drop";
+	public static final String INSERT_INTO_QUERY = "impala.table.query.insert";
+	public static final String CREATE_TABLE_QUERY = "impala.table.query.create";
 	
 	public PropertiesE() throws IOException{
 		this(DEFAULT_PROPETIES_FILE);
@@ -145,7 +145,7 @@ public class PropertiesE extends Properties {
 		
 		String sourceControlFile_prop = getMandatoryProperty(
 												OGG_DEFINITION_FILE_NAME
-												, "the path of the definition file");
+												, "definition file path");
 		
 		return new File(sourceControlFile_prop);
 	}
@@ -178,7 +178,7 @@ public class PropertiesE extends Properties {
 		if(schema == null || table == null)
 			return new Path(DEFAULT_STAGING_HDFS_DIRECTORY);
 		else
-			return new Path(DEFAULT_STAGING_HDFS_DIRECTORY + schema + "/" + table);
+			return new Path(DEFAULT_STAGING_HDFS_DIRECTORY + "/" + schema + "/" + table);
 	}
 
 	public LinkedList<String> getSourceLocalDirectories() throws BadConfigurationException {

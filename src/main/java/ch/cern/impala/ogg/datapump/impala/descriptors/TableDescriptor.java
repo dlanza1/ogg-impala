@@ -188,7 +188,7 @@ public class TableDescriptor {
 		if(prop.containsKey(PropertiesE.IMPALA_TABLE_NAME))
 			tableName = prop.getProperty(PropertiesE.IMPALA_TABLE_NAME);
 		
-		LOG.debug("the target Impala table name will be: " + schemaName + "." + tableName);
+		LOG.debug("target Impala table name will be: " + schemaName + "." + tableName);
 		
 		applyCustomColumnConfiguration(prop);		
 		
